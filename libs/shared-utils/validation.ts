@@ -2,6 +2,8 @@
  * Validation utility functions
  */
 
+import { CreateInventoryItemRequest, UpdateInventoryItemRequest } from '../shared-types/inventory';
+
 export const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -55,27 +57,35 @@ export const isRequired = (value: any): boolean => {
   return value !== null && value !== undefined;
 };
 
-export const validateInventoryItem = (item: any): string[] => {
+export const validateInventoryItem = (item: CreateInventoryItemRequest | UpdateInventoryItemRequest): string[] => {
   const errors: string[] = [];
   
-  if (!isRequired(item.name)) {
-    errors.push('Name is required');
-  } else if (!isValidStringLength(item.name, 1, 100)) {
-    errors.push('Name must be between 1 and 100 characters');
+  if ('name' in item && item.name !== undefined) {
+    if (!isRequired(item.name)) {
+      errors.push('Name is required');
+    } else if (!isValidStringLength(item.name, 1, 100)) {
+      errors.push('Name must be between 1 and 100 characters');
+    }
   }
   
-  if (!isRequired(item.SKU)) {
-    errors.push('SKU is required');
-  } else if (!isValidSKU(item.SKU)) {
-    errors.push('SKU must be 3-20 alphanumeric characters');
+  if ('SKU' in item && item.SKU !== undefined) {
+    if (!isRequired(item.SKU)) {
+      errors.push('SKU is required');
+    } else if (!isValidSKU(item.SKU)) {
+      errors.push('SKU must be 3-20 alphanumeric characters');
+    }
   }
   
-  if (!isNonNegativeNumber(item.quantity)) {
-    errors.push('Quantity must be a non-negative number');
+  if ('quantity' in item && item.quantity !== undefined) {
+    if (!isNonNegativeNumber(item.quantity)) {
+      errors.push('Quantity must be a non-negative number');
+    }
   }
   
-  if (!isPositiveNumber(item.unitPrice)) {
-    errors.push('Unit price must be a positive number');
+  if ('unitPrice' in item && item.unitPrice !== undefined) {
+    if (!isPositiveNumber(item.unitPrice)) {
+      errors.push('Unit price must be a positive number');
+    }
   }
   
   return errors;

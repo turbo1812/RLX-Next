@@ -57,7 +57,7 @@ import { BreadcrumbModule } from 'primeng/breadcrumb';
               </div>
               <div class="field">
                 <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                <textarea id="description" pInputTextarea [(ngModel)]="warehouse.description" rows="3" class="w-full"></textarea>
+                <textarea id="description" [(ngModel)]="warehouse.description" rows="3" class="w-full"></textarea>
               </div>
             </div>
           </p-card>
