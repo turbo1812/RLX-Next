@@ -1,0 +1,58 @@
+<div class="min-h-screen bg-gray-50">
+  <!-- Navigation Header -->
+  <header class="bg-white shadow-sm border-b">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo and Title -->
+        <div class="flex items-center">
+          <i class="pi pi-building text-blue-600 text-2xl mr-3"></i>
+          <h1 class="text-xl font-bold text-gray-900">WMS</h1>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="hidden md:flex space-x-8">
+          <a routerLink="/dashboard" 
+             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
+             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            Dashboard
+          </a>
+          <a routerLink="/inventory" 
+             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
+             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            Inventory
+          </a>
+          <a routerLink="/orders" 
+             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
+             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            Orders
+          </a>
+          <a routerLink="/fleet" 
+             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
+             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            Fleet
+          </a>
+          <a routerLink="/warehouse" 
+             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
+             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
+            Warehouse
+          </a>
+        </nav>
+
+        <!-- User Menu -->
+        <div class="flex items-center space-x-4">
+          <button class="p-2 text-gray-400 hover:text-gray-600">
+            <i class="pi pi-bell text-lg"></i>
+          </button>
+          <button class="p-2 text-gray-400 hover:text-gray-600">
+            <i class="pi pi-user text-lg"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <router-outlet />
+  </main>
+</div>
