@@ -5,50 +5,24 @@ yarn-debug.log*
 yarn-error.log*
 
 # Angular
-apps/frontend/dist/
-apps/frontend/.angular/
-apps/frontend/.sass-cache/
-apps/frontend/connect.lock
-apps/frontend/coverage/
-apps/frontend/libpeerconnection.log
-apps/frontend/npm-debug.log
-apps/frontend/yarn-error.log
-apps/frontend/testem.log
-apps/frontend/typings/
-
-# .NET / Azure Functions
-apps/backend/bin/
-apps/backend/obj/
-apps/backend/*.user
-apps/backend/*.suo
-apps/backend/*.userosscache
-apps/backend/*.sln.docstates
-apps/backend/*.userprefs
-apps/backend/.vs/
-apps/backend/.vscode/
-apps/backend/local.settings.json
-apps/backend/.env
-
-# Build outputs
+.angular/
 dist/
-build/
-out/
+tmp/
+out-tsc/
+bazel-out/
 
-# IDE
+# .NET
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
 .vscode/
-.idea/
 *.swp
 *.swo
 *~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
 # Logs
 logs
@@ -62,6 +36,7 @@ pids
 
 # Coverage directory used by tools like istanbul
 coverage/
+*.lcov
 
 # nyc test coverage
 .nyc_output
@@ -71,6 +46,15 @@ jspm_packages/
 
 # Optional npm cache directory
 .npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -83,6 +67,8 @@ jspm_packages/
 
 # dotenv environment variables file
 .env
+.env.test
+.env.production
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -98,7 +84,7 @@ jspm_packages/
 .vuepress/dist
 
 # Serverless directories
-.serverless
+.serverless/
 
 # FuseBox cache
 .fusebox/
@@ -114,26 +100,27 @@ jspm_packages/
 
 # Azure Functions
 local.settings.json
-host.json.bak
+host.json
 
-# Azure Storage Emulator
-AzureStorageEmulator.exe
+# Database
+*.db
+*.sqlite
 
-# Azure CLI
-.azure/
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Terraform
-*.tfstate
-*.tfstate.*
-.terraform/
-.terraform.lock.hcl
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
 
-# Environment variables
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Temporary files
-tmp/
-temp/ 
+# Build outputs
+build/
+out/ 

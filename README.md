@@ -242,13 +242,36 @@ Types:
 
 ## 🤝 Contributing
 
-1. Fork & clone the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and ensure they pass
-5. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-6. Push to branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+### Development Process
+
+We follow a **documentation-driven development** approach to ensure code and documentation stay in sync:
+
+1. **Fork & clone** the repository
+2. **Create feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Update documentation first**:
+   - Update `FEATURE_MATRIX.md` with new feature
+   - Update `README.md` if needed
+   - Create technical debt items if shortcuts are needed
+4. **Implement the feature**
+5. **Run tests** and ensure they pass
+6. **Follow PR checklist** in `PR_CHECKLIST.md`
+7. **Commit changes** following conventional commits
+8. **Push to branch** and open a Pull Request
+
+### Quality Gates
+
+- ✅ **Feature Matrix Updated** - All features tracked
+- ✅ **Technical Debt Logged** - No hidden shortcuts
+- ✅ **Documentation Updated** - README reflects reality
+- ✅ **Tests Added** - Code is testable
+- ✅ **Code Review Completed** - Peer review mandatory
+
+### Documentation Standards
+
+- **Living Documentation**: All docs are version-controlled
+- **Feature Traceability**: Every feature mapped in `FEATURE_MATRIX.md`
+- **Technical Debt Visibility**: All debt tracked in `TECHNICAL_DEBT.md`
+- **Process Enforcement**: `PR_CHECKLIST.md` ensures quality
 
 ## 📄 License
 

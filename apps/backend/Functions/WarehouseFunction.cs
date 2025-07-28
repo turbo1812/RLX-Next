@@ -15,7 +15,7 @@ public class WarehouseFunction
         _logger = loggerFactory.CreateLogger<WarehouseFunction>();
     }
 
-    [Function("GetWarehouseLayout")]
+    [Function("Warehouse_GetLayout")]
     public HttpResponseData GetWarehouseLayout([HttpTrigger(AuthorizationLevel.Function, "get", Route = "warehouse")] HttpRequestData req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request to get warehouse layout.");
@@ -101,7 +101,7 @@ public class WarehouseFunction
         return response;
     }
 
-    [Function("UpdateWarehouseLayout")]
+    [Function("Warehouse_UpdateLayout")]
     public HttpResponseData UpdateWarehouseLayout([HttpTrigger(AuthorizationLevel.Function, "post", Route = "warehouse")] HttpRequestData req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request to update warehouse layout.");
@@ -126,7 +126,7 @@ public class WarehouseFunction
         return response;
     }
 
-    [Function("GetWarehouseZone")]
+    [Function("Warehouse_GetZone")]
     public HttpResponseData GetWarehouseZone([HttpTrigger(AuthorizationLevel.Function, "get", Route = "warehouse/zone/{id}")] HttpRequestData req, string id)
     {
         _logger.LogInformation($"C# HTTP trigger function processed a request to get warehouse zone {id}.");

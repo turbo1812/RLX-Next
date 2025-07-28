@@ -1,0 +1,620 @@
+<div class="inventory-container">
+  <!-- Header Section -->
+  <header class="inventory-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title">Inventory Management</h1>
+        <p class="page-subtitle">Track and manage inventory across all warehouses</p>
+      </div>
+      <div class="header-actions">
+        <button pButton 
+                type="button" 
+                label="Add New Item" 
+                icon="pi pi-plus" 
+                class="add-item-btn"
+                [disabled]="loading" 
+                (onClick)="addInventoryItem()">
+        </button>
+        <button pButton 
+                type="button" 
+                label="Export Data" 
+                icon="pi pi-download" 
+                severity="secondary" 
+                [outlined]="true" 
+                [disabled]="loading" 
+                (onClick)="exportInventory()">
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Inventory Stats -->
+  <section class="inventory-stats">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="pi pi-box"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ getTotalItems() }}</div>
+          <div class="stat-label">Total Items</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon low-stock">
+          <i class="pi pi-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value low-stock">{{ getLowStockCount() }}</div>
+          <div class="stat-label">Low Stock</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon out-of-stock">
+          <i class="pi pi-times-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value out-of-stock">{{ getOutOfStockCount() }}</div>
+          <div class="stat-label">Out of Stock</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon value">
+          <i class="pi pi-dollar"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ getTotalValue() | currency }}</div>
+          <div class="stat-label">Total Value</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Inventory Table -->
+  <section class="inventory-table-section">
+    <div class="section-header">
+      <h2 class="section-title">Inventory Items</h2>
+      <div class="table-controls">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input pInputText 
+                 type="text" 
+                 placeholder="Search items..." 
+                 [(ngModel)]="searchTerm"
+                 (input)="filterItems()">
+        </span>
+        <p-dropdown [options]="categoryFilterOptions" 
+                   [(ngModel)]="selectedCategoryFilter"
+                   placeholder="Filter by Category"
+                   (onChange)="filterItems()">
+        </p-dropdown>
+        <p-dropdown [options]="getWarehouseFilterOptions()" 
+                   [(ngModel)]="selectedWarehouseFilter"
+                   placeholder="Filter by Warehouse"
+                   (onChange)="filterItems()">
+        </p-dropdown>
+        <p-dropdown [options]="stockLevelFilterOptions" 
+                   [(ngModel)]="selectedStockLevelFilter"
+                   placeholder="Filter by Stock Level"
+                   (onChange)="filterItems()">
+        </p-dropdown>
+      </div>
+    </div>
+    
+    <p-table [value]="filteredItems" 
+             [paginator]="true" 
+             [rows]="10"
+             [showCurrentPageReport]="true"
+             [tableStyle]="{'min-width': '50rem'}"
+             [loading]="loading"
+             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} items"
+             [rowsPerPageOptions]="[10, 25, 50]">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Item</th>
+          <th>SKU</th>
+          <th>Category</th>
+          <th>Total Stock</th>
+          <th>Stock Level</th>
+          <th>Warehouses</th>
+          <th>Cost</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td>
+            <div class="item-info">
+              <div class="item-name">{{ item.name }}</div>
+              <div class="item-supplier">{{ item.supplier }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="item-sku">{{ item.SKU }}</span>
+          </td>
+          <td>
+            <p-tag [value]="item.category" 
+                   [severity]="getCategorySeverity(item.category)">
+            </p-tag>
+          </td>
+          <td>
+            <span class="total-quantity">{{ getTotalQuantityForItem(item) }}</span>
+          </td>
+          <td>
+            <p-tag [value]="getStatusText(getStockLevelForItem(item))" 
+                   [severity]="getStatusSeverity(getStockLevelForItem(item))">
+            </p-tag>
+          </td>
+          <td>
+            <div class="warehouse-list">
+              <div *ngFor="let warehouse of item.warehouseInventory" class="warehouse-item">
+                <span class="warehouse-name">{{ warehouse.warehouseName }}</span>
+                <span class="warehouse-quantity">({{ warehouse.quantity }})</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="item-cost">{{ item.cost | currency }}</span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-eye" 
+                      class="p-button-text p-button-info"
+                      pTooltip="View Details"
+                      (click)="viewItem(item)">
+              </button>
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-pencil" 
+                      class="p-button-text p-button-warning"
+                      pTooltip="Edit Item"
+                      (click)="editItem(item)">
+              </button>
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-exchange" 
+                      class="p-button-text p-button-success"
+                      pTooltip="Transfer Stock"
+                      (click)="transferStock(item)">
+              </button>
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-trash" 
+                      class="p-button-text p-button-danger"
+                      pTooltip="Delete Item"
+                      (click)="deleteItem(item)">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center p-4">
+            <div class="empty-state">
+              <i class="pi pi-box empty-icon"></i>
+              <h3>No inventory items found</h3>
+              <p>Get started by adding your first inventory item</p>
+              <button pButton 
+                      type="button" 
+                      label="Add Item" 
+                      icon="pi pi-plus"
+                      (click)="addInventoryItem()">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>
+
+<!-- View Item Dialog -->
+<p-dialog header="Item Details" 
+          [(visible)]="showViewDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '600px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <div *ngIf="selectedItem" class="item-details">
+    <div class="detail-row">
+      <label>Name:</label>
+      <span>{{ selectedItem.name }}</span>
+    </div>
+    <div class="detail-row">
+      <label>SKU:</label>
+      <span>{{ selectedItem.SKU }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Category:</label>
+      <p-tag [value]="selectedItem.category" 
+             [severity]="getCategorySeverity(selectedItem.category)">
+      </p-tag>
+    </div>
+    <div class="detail-row">
+      <label>Supplier:</label>
+      <span>{{ selectedItem.supplier }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Cost:</label>
+      <span>{{ selectedItem.cost | currency }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Stock Levels:</label>
+      <span>Min: {{ selectedItem.minStockLevel }} | Max: {{ selectedItem.maxStockLevel }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Total Stock:</label>
+      <span>{{ getTotalQuantityForItem(selectedItem) }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Stock Status:</label>
+      <p-tag [value]="getStatusText(getStockLevelForItem(selectedItem))" 
+             [severity]="getStatusSeverity(getStockLevelForItem(selectedItem))">
+      </p-tag>
+    </div>
+    <div class="detail-row">
+      <label>Warehouse Inventory:</label>
+      <div class="warehouse-details">
+        <div *ngFor="let warehouse of selectedItem.warehouseInventory" class="warehouse-detail">
+          <div class="warehouse-header">
+            <span class="warehouse-name">{{ warehouse.warehouseName }}</span>
+            <span class="warehouse-quantity">{{ warehouse.quantity }} units</span>
+          </div>
+          <div class="warehouse-location">Location: {{ warehouse.location }}</div>
+          <div class="warehouse-updated">Updated: {{ warehouse.lastUpdated | date:'short' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</p-dialog>
+
+<!-- Add Item Dialog -->
+<p-dialog header="Add New Inventory Item" 
+          [(visible)]="showAddDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '700px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form (ngSubmit)="submitAddItem()" 
+        #addItemForm="ngForm" 
+        class="item-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="itemName">Item Name *</label>
+        <input id="itemName" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="newItem.name" 
+               name="itemName" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="itemSku">SKU *</label>
+        <input id="itemSku" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="newItem.SKU" 
+               name="itemSku" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="itemCategory">Category *</label>
+        <p-dropdown id="itemCategory" 
+                   [options]="categoryOptions" 
+                   [(ngModel)]="newItem.category" 
+                   name="itemCategory" 
+                   placeholder="Select Category" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="itemSupplier">Supplier *</label>
+        <input id="itemSupplier" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="newItem.supplier" 
+               name="itemSupplier" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="itemCost">Cost *</label>
+        <input id="itemCost" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="newItem.cost" 
+               name="itemCost" 
+               min="0" 
+               step="0.01" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="minStockLevel">Min Stock Level *</label>
+        <input id="minStockLevel" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="newItem.minStockLevel" 
+               name="minStockLevel" 
+               min="0" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="maxStockLevel">Max Stock Level *</label>
+        <input id="maxStockLevel" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="newItem.maxStockLevel" 
+               name="maxStockLevel" 
+               min="0" 
+               required />
+      </div>
+    </div>
+
+    <div class="warehouse-section">
+      <div class="warehouse-header">
+        <h4>Warehouse Inventory</h4>
+        <button pButton 
+                type="button" 
+                label="Add Warehouse" 
+                icon="pi pi-plus" 
+                class="p-button-sm"
+                (click)="addWarehouseInventory()">
+        </button>
+      </div>
+      
+      <div class="warehouse-list">
+        <div *ngFor="let warehouse of newItem.warehouseInventory; let i = index" class="warehouse-item">
+          <div class="warehouse-form-grid">
+            <div class="form-field">
+              <label>Warehouse *</label>
+              <p-dropdown [options]="getWarehouseOptions()" 
+                         [(ngModel)]="warehouse.warehouseId" 
+                         [name]="'warehouse' + i" 
+                         placeholder="Select Warehouse" 
+                         required>
+              </p-dropdown>
+            </div>
+            <div class="form-field">
+              <label>Quantity *</label>
+              <input type="number" 
+                     pInputText 
+                     [(ngModel)]="warehouse.quantity" 
+                     [name]="'quantity' + i" 
+                     min="0" 
+                     required />
+            </div>
+            <div class="form-field">
+              <label>Location</label>
+              <input type="text" 
+                     pInputText 
+                     [(ngModel)]="warehouse.location" 
+                     [name]="'location' + i" 
+                     placeholder="e.g., A1-B2-C3" />
+            </div>
+            <div class="form-field">
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-trash" 
+                      class="p-button-text p-button-danger p-button-sm"
+                      (click)="removeWarehouseInventory(i)">
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button pButton 
+              type="button" 
+              label="Cancel" 
+              class="p-button-text" 
+              (click)="closeAddDialog()" 
+              [disabled]="addItemLoading">
+      </button>
+      <button pButton 
+              type="submit" 
+              label="Add Item" 
+              [loading]="addItemLoading"
+              [disabled]="!addItemForm.form.valid">
+      </button>
+    </div>
+    
+    <div *ngIf="addItemError" class="error-message">
+      {{ addItemError }}
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Edit Item Dialog -->
+<p-dialog header="Edit Inventory Item" 
+          [(visible)]="showEditDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '600px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form *ngIf="editItemData" 
+        (ngSubmit)="submitEditItem()" 
+        #editItemForm="ngForm" 
+        class="item-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="editItemName">Item Name *</label>
+        <input id="editItemName" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="editItemData.name" 
+               name="editItemName" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editItemSku">SKU *</label>
+        <input id="editItemSku" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="editItemData.SKU" 
+               name="editItemSku" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editItemCategory">Category *</label>
+        <p-dropdown id="editItemCategory" 
+                   [options]="categoryOptions" 
+                   [(ngModel)]="editItemData.category" 
+                   name="editItemCategory" 
+                   placeholder="Select Category" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="editItemSupplier">Supplier *</label>
+        <input id="editItemSupplier" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="editItemData.supplier" 
+               name="editItemSupplier" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editItemCost">Cost *</label>
+        <input id="editItemCost" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="editItemData.cost" 
+               name="editItemCost" 
+               min="0" 
+               step="0.01" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editMinStockLevel">Min Stock Level *</label>
+        <input id="editMinStockLevel" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="editItemData.minStockLevel" 
+               name="editMinStockLevel" 
+               min="0" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editMaxStockLevel">Max Stock Level *</label>
+        <input id="editMaxStockLevel" 
+               type="number" 
+               pInputText 
+               [(ngModel)]="editItemData.maxStockLevel" 
+               name="editMaxStockLevel" 
+               min="0" 
+               required />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button pButton 
+              type="button" 
+              label="Cancel" 
+              class="p-button-text" 
+              (click)="closeEditDialog()" 
+              [disabled]="editItemLoading">
+      </button>
+      <button pButton 
+              type="submit" 
+              label="Save Changes" 
+              [loading]="editItemLoading"
+              [disabled]="!editItemForm.form.valid">
+      </button>
+    </div>
+    
+    <div *ngIf="editItemError" class="error-message">
+      {{ editItemError }}
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Transfer Stock Dialog -->
+<p-dialog header="Transfer Stock" 
+          [(visible)]="showTransferDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '500px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form *ngIf="transferData" 
+        (ngSubmit)="submitTransfer()" 
+        #transferForm="ngForm" 
+        class="transfer-form">
+    <div class="form-field">
+      <label>Item</label>
+      <input type="text" 
+             pInputText 
+             [value]="transferData.itemName" 
+             readonly />
+    </div>
+    <div class="form-field">
+      <label for="fromWarehouse">From Warehouse *</label>
+      <p-dropdown id="fromWarehouse" 
+                 [options]="getWarehouseOptions()" 
+                 [(ngModel)]="transferData.fromWarehouseId" 
+                 name="fromWarehouse" 
+                 placeholder="Select Source Warehouse" 
+                 required>
+      </p-dropdown>
+    </div>
+    <div class="form-field">
+      <label for="toWarehouse">To Warehouse *</label>
+      <p-dropdown id="toWarehouse" 
+                 [options]="getWarehouseOptions()" 
+                 [(ngModel)]="transferData.toWarehouseId" 
+                 name="toWarehouse" 
+                 placeholder="Select Destination Warehouse" 
+                 required>
+      </p-dropdown>
+    </div>
+    <div class="form-field">
+      <label for="transferQuantity">Quantity *</label>
+      <input id="transferQuantity" 
+             type="number" 
+             pInputText 
+             [(ngModel)]="transferData.quantity" 
+             name="transferQuantity" 
+             min="1" 
+             required />
+    </div>
+
+    <div class="form-actions">
+      <button pButton 
+              type="button" 
+              label="Cancel" 
+              class="p-button-text" 
+              (click)="closeTransferDialog()">
+      </button>
+      <button pButton 
+              type="submit" 
+              label="Transfer Stock" 
+              [disabled]="!transferForm.form.valid">
+      </button>
+    </div>
+    
+    <div *ngIf="transferError" class="error-message">
+      {{ transferError }}
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Confirmation Dialog -->
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast> +
+
+
++

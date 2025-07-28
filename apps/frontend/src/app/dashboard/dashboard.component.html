@@ -1,0 +1,338 @@
+<div class="dashboard-container">
+  <!-- Header Section -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="welcome-section">
+        <h1 class="welcome-title">Welcome back, Admin</h1>
+        <p class="welcome-subtitle">Here's what's happening in your warehouse today</p>
+      </div>
+      <div class="header-actions">
+        <div class="time-display">
+          <span class="time-label">Last updated</span>
+          <span class="time-value">{{ currentTime | date:'shortTime' }}</span>
+        </div>
+        <button pButton type="button" 
+                icon="pi pi-refresh" 
+                class="refresh-btn" 
+                (click)="refreshDashboard()"
+                [loading]="isRefreshing"
+                pTooltip="Refresh Dashboard">
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Key Metrics Section -->
+  <section class="metrics-section">
+    <div class="section-header">
+      <h2 class="section-title">Key Metrics</h2>
+      <p class="section-subtitle">Real-time overview of your warehouse operations</p>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-card" *ngFor="let metric of metrics">
+        <div class="metric-icon" [ngClass]="'metric-icon-' + metric.type">
+          <i [class]="metric.icon"></i>
+        </div>
+        <div class="metric-content">
+          <div class="metric-value">{{ metric.value }}</div>
+          <div class="metric-label">{{ metric.label }}</div>
+          <div class="metric-trend" [ngClass]="'trend-' + metric.trend">
+            <i [class]="metric.trend === 'up' ? 'pi pi-arrow-up' : 'pi pi-arrow-down'"></i>
+            <span>{{ metric.change }}</span>
+          </div>
+        </div>
+        <button pButton type="button" 
+                class="metric-action-btn" 
+                [routerLink]="metric.link"
+                icon="pi pi-arrow-right"
+                [outlined]="true"
+                pTooltip="View Details">
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Grid -->
+  <div class="dashboard-grid">
+    <!-- Recent Activity -->
+    <section class="activity-section">
+      <div class="section-header">
+        <h2 class="section-title">Recent Activity</h2>
+        <button pButton type="button" 
+                label="View All" 
+                icon="pi pi-external-link" 
+                class="view-all-btn"
+                [outlined]="true"
+                routerLink="/activity">
+        </button>
+      </div>
+      <div class="activity-list">
+        <div class="activity-item" *ngFor="let activity of activities">
+          <div class="activity-icon" [ngClass]="'activity-icon-' + activity.type">
+            <i [class]="activity.icon"></i>
+          </div>
+          <div class="activity-content">
+            <div class="activity-title">{{ activity.title }}</div>
+            <div class="activity-description">{{ activity.description }}</div>
+            <div class="activity-meta">
+              <span class="activity-time">{{ activity.time }}</span>
+              <span class="activity-priority" *ngIf="activity.priority" [ngClass]="'priority-' + activity.priority">
+                {{ activity.priority }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="actions-section">
+      <div class="section-header">
+        <h2 class="section-title">Quick Actions</h2>
+        <p class="section-subtitle">Common tasks and operations</p>
+      </div>
+      <div class="actions-grid">
+        <button pButton type="button" 
+                class="action-card" 
+                *ngFor="let action of quickActions; let i = index"
+                [label]="action.label" 
+                [icon]="action.icon" 
+                [severity]="action.severity"
+                (click)="onQuickActionClick(i)"
+                [loading]="action.loading || false">
+        </button>
+      </div>
+    </section>
+
+    <!-- Alerts & Notifications -->
+    <section class="alerts-section" *ngIf="alerts.length > 0">
+      <div class="section-header">
+        <h2 class="section-title">Alerts & Notifications</h2>
+        <button pButton type="button" 
+                label="Mark All Read" 
+                icon="pi pi-check" 
+                class="mark-read-btn"
+                [text]="true"
+                (click)="markAllAlertsRead()">
+        </button>
+      </div>
+      <div class="alerts-list">
+        <div class="alert-item" *ngFor="let alert of alerts" [ngClass]="'alert-' + alert.severity">
+          <div class="alert-icon">
+            <i [class]="alert.icon"></i>
+          </div>
+          <div class="alert-content">
+            <div class="alert-title">{{ alert.title }}</div>
+            <div class="alert-message">{{ alert.message }}</div>
+            <div class="alert-time">{{ alert.time }}</div>
+          </div>
+          <button pButton type="button" 
+                  icon="pi pi-times" 
+                  class="alert-dismiss-btn"
+                  [text]="true"
+                  (click)="dismissAlert(alert.id)">
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Performance Charts Section -->
+  <section class="charts-section">
+    <div class="section-header">
+      <h2 class="section-title">Performance Overview</h2>
+      <div class="chart-controls">
+        <p-dropdown [options]="timeRanges" 
+                   [(ngModel)]="selectedTimeRange" 
+                   optionLabel="label"
+                   placeholder="Select Time Range"
+                   (onChange)="onTimeRangeChange()">
+        </p-dropdown>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3 class="chart-title">Order Volume</h3>
+        <div class="chart-placeholder">
+          <i class="pi pi-chart-line"></i>
+          <p>Chart visualization would go here</p>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3 class="chart-title">Inventory Levels</h3>
+        <div class="chart-placeholder">
+          <i class="pi pi-chart-bar"></i>
+          <p>Chart visualization would go here</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Dialogs -->
+<ng-container>
+  <!-- Add Inventory Dialog -->
+  <p-dialog header="Add Inventory Item" 
+            [(visible)]="showAddInventoryDialog" 
+            [modal]="true" 
+            [closable]="true" 
+            [dismissableMask]="true" 
+            [style]="{width: '500px'}"
+            [draggable]="false"
+            [resizable]="false">
+    <form (ngSubmit)="submitAddInventoryItem()" #addInventoryForm="ngForm" class="dialog-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="name">Item Name *</label>
+          <input id="name" type="text" pInputText [(ngModel)]="newInventoryItem.name" name="name" required />
+        </div>
+        <div class="form-field">
+          <label for="SKU">SKU *</label>
+          <input id="SKU" type="text" pInputText [(ngModel)]="newInventoryItem.SKU" name="SKU" required />
+        </div>
+        <div class="form-field">
+          <label for="quantity">Quantity *</label>
+          <p-inputNumber id="quantity" [(ngModel)]="newInventoryItem.quantity" name="quantity" [min]="0" required></p-inputNumber>
+        </div>
+        <div class="form-field">
+          <label for="location">Location *</label>
+          <input id="location" type="text" pInputText [(ngModel)]="newInventoryItem.location" name="location" required />
+        </div>
+        <div class="form-field">
+          <label for="category">Category *</label>
+          <input id="category" type="text" pInputText [(ngModel)]="newInventoryItem.category" name="category" required />
+        </div>
+        <div class="form-field">
+          <label for="cost">Unit Cost</label>
+          <p-inputNumber id="cost" [(ngModel)]="newInventoryItem.cost" name="cost" [min]="0" mode="currency" currency="USD"></p-inputNumber>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button pButton type="button" label="Cancel" class="p-button-text" (click)="closeAddInventoryDialog()"></button>
+        <button pButton type="submit" label="Add Item" [disabled]="addInventoryLoading || !addInventoryForm.form.valid" [loading]="addInventoryLoading"></button>
+      </div>
+      <div *ngIf="addInventoryError" class="error-message">{{ addInventoryError }}</div>
+      <div *ngIf="addInventorySuccess" class="success-message">Item added successfully!</div>
+    </form>
+  </p-dialog>
+
+  <!-- Create Order Dialog -->
+  <p-dialog header="Create New Order" 
+            [(visible)]="showAddOrderDialog" 
+            [modal]="true" 
+            [closable]="true" 
+            [dismissableMask]="true" 
+            [style]="{width: '600px'}"
+            [draggable]="false"
+            [resizable]="false">
+    <form (ngSubmit)="submitCreateOrder()" #createOrderForm="ngForm" class="dialog-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="customerName">Customer Name *</label>
+          <input id="customerName" type="text" pInputText [(ngModel)]="newOrder.customerName" name="customerName" required />
+        </div>
+        <div class="form-field">
+          <label for="priority">Priority *</label>
+          <p-dropdown id="priority" [options]="priorityOptions" [(ngModel)]="newOrder.priority" name="priority" placeholder="Select Priority" required></p-dropdown>
+        </div>
+        <div class="form-field full-width">
+          <label for="shippingAddress">Shipping Address *</label>
+          <textarea id="shippingAddress" pInputTextarea [(ngModel)]="newOrder.shippingAddress" name="shippingAddress" rows="3" required></textarea>
+        </div>
+      </div>
+      
+      <div class="order-items-section">
+        <div class="section-subheader">
+          <h4>Order Items</h4>
+          <button pButton type="button" icon="pi pi-plus" class="p-button-text" (click)="addOrderItem()">Add Item</button>
+        </div>
+        <div class="order-items-list">
+          <div class="order-item" *ngFor="let item of newOrder.items; let i = index">
+            <div class="item-grid">
+              <div class="item-field">
+                <label>SKU *</label>
+                <input type="text" pInputText [(ngModel)]="item.SKU" [name]="'SKU' + i" required />
+              </div>
+              <div class="item-field">
+                <label>Quantity *</label>
+                <p-inputNumber [(ngModel)]="item.quantity" [name]="'quantity' + i" [min]="1" required></p-inputNumber>
+              </div>
+              <div class="item-field">
+                <label>Unit Price *</label>
+                <p-inputNumber [(ngModel)]="item.unitPrice" [name]="'unitPrice' + i" [min]="0" mode="currency" currency="USD" required></p-inputNumber>
+              </div>
+              <div class="item-actions">
+                <button pButton type="button" icon="pi pi-trash" class="p-button-text p-button-danger" (click)="removeOrderItem(i)" *ngIf="newOrder.items.length > 1"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button pButton type="button" label="Cancel" class="p-button-text" (click)="closeAddOrderDialog()"></button>
+        <button pButton type="submit" label="Create Order" [disabled]="createOrderLoading || !createOrderForm.form.valid" [loading]="createOrderLoading"></button>
+      </div>
+      <div *ngIf="createOrderError" class="error-message">{{ createOrderError }}</div>
+      <div *ngIf="createOrderSuccess" class="success-message">Order created successfully!</div>
+    </form>
+  </p-dialog>
+
+  <!-- Schedule Maintenance Dialog -->
+  <p-dialog header="Schedule Maintenance" 
+            [(visible)]="showScheduleMaintenanceDialog" 
+            [modal]="true" 
+            [closable]="true" 
+            [dismissableMask]="true" 
+            [style]="{width: '450px'}"
+            [draggable]="false"
+            [resizable]="false">
+    <form (ngSubmit)="submitScheduleMaintenance()" #scheduleMaintenanceForm="ngForm" class="dialog-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="vehicle">Vehicle *</label>
+          <p-dropdown id="vehicle" [options]="fleetVehicles" [(ngModel)]="selectedVehicle" name="vehicle" optionLabel="vehicleNumber" placeholder="Select Vehicle" required></p-dropdown>
+        </div>
+        <div class="form-field">
+          <label for="maintenanceDate">Maintenance Date *</label>
+          <p-datepicker id="maintenanceDate" [(ngModel)]="maintenanceDate" name="maintenanceDate" dateFormat="yy-mm-dd" showIcon="true" required></p-datepicker>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button pButton type="button" label="Cancel" class="p-button-text" (click)="closeScheduleMaintenanceDialog()"></button>
+        <button pButton type="submit" label="Schedule" [disabled]="scheduleMaintenanceLoading || !scheduleMaintenanceForm.form.valid" [loading]="scheduleMaintenanceLoading"></button>
+      </div>
+      <div *ngIf="scheduleMaintenanceError" class="error-message">{{ scheduleMaintenanceError }}</div>
+      <div *ngIf="scheduleMaintenanceSuccess" class="success-message">Maintenance scheduled successfully!</div>
+    </form>
+  </p-dialog>
+
+  <!-- Generate Report Dialog -->
+  <p-dialog header="Generate Report" 
+            [(visible)]="showGenerateReportDialog" 
+            [modal]="true" 
+            [closable]="true" 
+            [dismissableMask]="true" 
+            [style]="{width: '500px'}"
+            [draggable]="false"
+            [resizable]="false">
+    <form (ngSubmit)="submitGenerateReport()" #generateReportForm="ngForm" class="dialog-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="reportType">Report Type *</label>
+          <p-dropdown id="reportType" [options]="reportTypes" [(ngModel)]="selectedReportType" name="reportType" optionLabel="label" placeholder="Select Report Type" required></p-dropdown>
+        </div>
+        <div class="form-field">
+          <label for="dateRange">Date Range *</label>
+          <p-datepicker id="dateRange" [(ngModel)]="reportDateRange" name="dateRange" selectionMode="range" dateFormat="yy-mm-dd" showIcon="true" required></p-datepicker>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button pButton type="button" label="Cancel" class="p-button-text" (click)="closeGenerateReportDialog()"></button>
+        <button pButton type="submit" label="Generate" [disabled]="generateReportLoading || !generateReportForm.form.valid" [loading]="generateReportLoading"></button>
+      </div>
+      <div *ngIf="generateReportError" class="error-message">{{ generateReportError }}</div>
+      <div *ngIf="generateReportSuccess" class="success-message">Report generated and downloaded!</div>
+    </form>
+  </p-dialog>
+</ng-container>

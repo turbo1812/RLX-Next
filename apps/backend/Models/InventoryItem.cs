@@ -1,32 +1,20 @@
-using System.ComponentModel.DataAnnotations;
+using System;
 
-namespace WMS.Backend.Models;
-
-public class InventoryItem
+namespace WMS.Backend.Models
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    
-    [Required]
-    [StringLength(100)]
-    public string Name { get; set; } = string.Empty;
-    
-    [StringLength(500)]
-    public string Description { get; set; } = string.Empty;
-    
-    [Required]
-    public string SKU { get; set; } = string.Empty;
-    
-    public int Quantity { get; set; }
-    
-    public string Location { get; set; } = string.Empty;
-    
-    public string Category { get; set; } = string.Empty;
-    
-    public decimal UnitPrice { get; set; }
-    
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    
-    public bool IsActive { get; set; } = true;
+    public class InventoryItem
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public string SKU { get; set; }
+        public int Quantity { get; set; }
+        public string Location { get; set; }
+        public int? CategoryId { get; set; }
+        public int? SupplierId { get; set; }
+        public decimal Cost { get; set; }
+        public int MinStockLevel { get; set; }
+        public int MaxStockLevel { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
 } 

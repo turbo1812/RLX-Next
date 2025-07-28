@@ -16,7 +16,7 @@ public class InventoryFunction
         _logger = loggerFactory.CreateLogger<InventoryFunction>();
     }
 
-    [Function("GetInventory")]
+    [Function("Inventory_GetAll")]
     public HttpResponseData GetInventory([HttpTrigger(AuthorizationLevel.Function, "get", Route = "inventory")] HttpRequestData req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request to get inventory.");
@@ -26,23 +26,23 @@ public class InventoryFunction
         {
             new InventoryItem
             {
+                Id = Guid.NewGuid(),
                 Name = "Laptop Computer",
-                Description = "High-performance laptop for office use",
                 SKU = "LAP-001",
                 Quantity = 50,
                 Location = "A1-B2-C3",
-                Category = "Electronics",
-                UnitPrice = 999.99m
+                CategoryId = 1,
+                SupplierId = 1
             },
             new InventoryItem
             {
+                Id = Guid.NewGuid(),
                 Name = "Office Chair",
-                Description = "Ergonomic office chair with lumbar support",
                 SKU = "CHAIR-001",
                 Quantity = 25,
                 Location = "D4-E5-F6",
-                Category = "Furniture",
-                UnitPrice = 299.99m
+                CategoryId = 2,
+                SupplierId = 2
             }
         };
 
@@ -53,7 +53,7 @@ public class InventoryFunction
         return response;
     }
 
-    [Function("GetInventoryItem")]
+    [Function("Inventory_GetById")]
     public HttpResponseData GetInventoryItem([HttpTrigger(AuthorizationLevel.Function, "get", Route = "inventory/{id}")] HttpRequestData req, string id)
     {
         _logger.LogInformation($"C# HTTP trigger function processed a request to get inventory item {id}.");
@@ -61,14 +61,13 @@ public class InventoryFunction
         // Mock data - in production this would come from a database
         var item = new InventoryItem
         {
-            Id = id,
+            Id = Guid.TryParse(id, out var guid) ? guid : Guid.NewGuid(),
             Name = "Sample Item",
-            Description = "This is a sample inventory item",
             SKU = "SAMPLE-001",
             Quantity = 100,
             Location = "A1-B2-C3",
-            Category = "General",
-            UnitPrice = 49.99m
+            CategoryId = 1,
+            SupplierId = 1
         };
 
         var response = req.CreateResponse(HttpStatusCode.OK);
@@ -78,7 +77,7 @@ public class InventoryFunction
         return response;
     }
 
-    [Function("CreateInventoryItem")]
+    [Function("Inventory_Create")]
     public HttpResponseData CreateInventoryItem([HttpTrigger(AuthorizationLevel.Function, "post", Route = "inventory")] HttpRequestData req)
     {
         _logger.LogInformation("C# HTTP trigger function processed a request to create inventory item.");
@@ -94,9 +93,7 @@ public class InventoryFunction
         }
 
         // In production, this would save to a database
-        item.Id = Guid.NewGuid().ToString();
-        item.CreatedAt = DateTime.UtcNow;
-        item.UpdatedAt = DateTime.UtcNow;
+        item.Id = Guid.NewGuid();
 
         var response = req.CreateResponse(HttpStatusCode.Created);
         response.Headers.Add("Content-Type", "application/json; charset=utf-8");

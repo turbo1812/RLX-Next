@@ -10,6 +10,9 @@ export * from './fleet';
 // Warehouse types
 export * from './warehouse';
 
+// Client types
+export * from './client';
+
 // Common types used across the application
 export interface ApiResponse<T> {
   data: T;

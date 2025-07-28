@@ -1,0 +1,505 @@
+<div class="orders-container">
+  <!-- Header Section -->
+  <header class="orders-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title">Order Management</h1>
+        <p class="page-subtitle">Track and manage customer orders efficiently</p>
+      </div>
+      <div class="header-actions">
+        <button pButton 
+                type="button" 
+                label="Create Order" 
+                icon="pi pi-plus" 
+                class="create-order-btn"
+                [disabled]="loading" 
+                (onClick)="createOrder()">
+        </button>
+        <button pButton 
+                type="button" 
+                label="Export Data" 
+                icon="pi pi-download" 
+                severity="secondary" 
+                [outlined]="true" 
+                [disabled]="loading" 
+                (onClick)="exportOrders()">
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Order Stats -->
+  <section class="orders-stats">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="pi pi-shopping-cart"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ orders.length }}</div>
+          <div class="stat-label">Total Orders</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon pending">
+          <i class="pi pi-clock"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value pending">{{ getPendingCount() }}</div>
+          <div class="stat-label">Pending</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon processing">
+          <i class="pi pi-cog"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value processing">{{ getProcessingCount() }}</div>
+          <div class="stat-label">Processing</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon revenue">
+          <i class="pi pi-dollar"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ getTotalRevenue() | currency }}</div>
+          <div class="stat-label">Total Revenue</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Orders Table -->
+  <section class="orders-table-section">
+    <div class="section-header">
+      <h2 class="section-title">Orders</h2>
+      <div class="table-controls">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input pInputText 
+                 type="text" 
+                 placeholder="Search orders..." 
+                 [(ngModel)]="searchTerm"
+                 (input)="filterOrders()">
+        </span>
+        <p-dropdown [options]="statusFilterOptions" 
+                   [(ngModel)]="selectedStatusFilter"
+                   placeholder="Filter by Status"
+                   (onChange)="filterOrders()">
+        </p-dropdown>
+        <p-dropdown [options]="priorityFilterOptions" 
+                   [(ngModel)]="selectedPriorityFilter"
+                   placeholder="Filter by Priority"
+                   (onChange)="filterOrders()">
+        </p-dropdown>
+      </div>
+    </div>
+    
+    <p-table [value]="filteredOrders" 
+             [paginator]="true" 
+             [rows]="10"
+             [showCurrentPageReport]="true"
+             [tableStyle]="{'min-width': '50rem'}"
+             [loading]="loading"
+             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} orders"
+             [rowsPerPageOptions]="[10, 25, 50]">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Priority</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-order>
+        <tr>
+          <td>
+            <span class="order-number">{{ order.orderNumber }}</span>
+          </td>
+          <td>
+            <div class="customer-info">
+              <div class="customer-name">{{ order.customerName }}</div>
+              <div class="customer-address">{{ order.shippingAddress }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="order-date">{{ order.orderDate | date:'short' }}</span>
+          </td>
+          <td>
+            <p-tag [value]="order.status" 
+                   [severity]="getStatusSeverity(order.status)">
+            </p-tag>
+          </td>
+          <td>
+            <span class="items-count">{{ order.items?.length || 0 }}</span>
+          </td>
+          <td>
+            <span class="order-total">{{ order.totalAmount | currency }}</span>
+          </td>
+          <td>
+            <p-tag [value]="order.priority" 
+                   [severity]="getPrioritySeverity(order.priority)">
+            </p-tag>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-eye" 
+                      class="p-button-text p-button-info"
+                      pTooltip="View Details"
+                      (click)="viewOrder(order)">
+              </button>
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-pencil" 
+                      class="p-button-text p-button-warning"
+                      pTooltip="Edit Order"
+                      (click)="editOrder(order)">
+              </button>
+              <button pButton 
+                      type="button" 
+                      icon="pi pi-check" 
+                      class="p-button-text p-button-success"
+                      pTooltip="Process Order"
+                      (click)="processOrder(order)">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center p-4">
+            <div class="empty-state">
+              <i class="pi pi-shopping-cart empty-icon"></i>
+              <h3>No orders found</h3>
+              <p>Get started by creating your first order</p>
+              <button pButton 
+                      type="button" 
+                      label="Create Order" 
+                      icon="pi pi-plus"
+                      (click)="createOrder()">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>
+
+<!-- View Order Dialog -->
+<p-dialog header="Order Details" 
+          [(visible)]="showViewDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '500px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <div *ngIf="selectedOrder" class="order-details">
+    <div class="detail-row">
+      <label>Order #:</label>
+      <span>{{ selectedOrder.orderNumber }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Customer:</label>
+      <span>{{ selectedOrder.customerName }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Shipping Address:</label>
+      <span>{{ selectedOrder.shippingAddress }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Order Date:</label>
+      <span>{{ selectedOrder.orderDate | date:'medium' }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Status:</label>
+      <p-tag [value]="selectedOrder.status" 
+             [severity]="getStatusSeverity(selectedOrder.status)">
+      </p-tag>
+    </div>
+    <div class="detail-row">
+      <label>Priority:</label>
+      <p-tag [value]="selectedOrder.priority" 
+             [severity]="getPrioritySeverity(selectedOrder.priority)">
+      </p-tag>
+    </div>
+    <div class="detail-row">
+      <label>Total Amount:</label>
+      <span>{{ selectedOrder.totalAmount | currency }}</span>
+    </div>
+    <div class="detail-row">
+      <label>Items:</label>
+      <div class="items-list">
+        <div *ngFor="let item of selectedOrder.items" class="item-row">
+          <span class="item-sku">{{ item.SKU }}</span>
+          <span class="item-quantity">× {{ item.quantity }}</span>
+          <span class="item-price">&#64; {{ item.unitPrice | currency }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</p-dialog>
+
+<!-- Edit Order Dialog -->
+<p-dialog header="Edit Order" 
+          [(visible)]="showEditDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '600px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form *ngIf="editOrderData" 
+        (ngSubmit)="submitEditOrder()" 
+        #editOrderForm="ngForm" 
+        class="order-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="editOrderNumber">Order #</label>
+        <input id="editOrderNumber" 
+               type="text" 
+               pInputText 
+               [value]="editOrderData.orderNumber" 
+               readonly />
+      </div>
+      <div class="form-field">
+        <label for="editCustomerName">Customer *</label>
+        <input id="editCustomerName" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="editOrderData.customerName" 
+               name="editCustomerName" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editShippingAddress">Shipping Address *</label>
+        <input id="editShippingAddress" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="editOrderData.shippingAddress" 
+               name="editShippingAddress" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="editOrderDate">Order Date</label>
+        <input id="editOrderDate" 
+               type="text" 
+               pInputText 
+               [value]="editOrderData.orderDate | date:'short'" 
+               readonly />
+      </div>
+      <div class="form-field">
+        <label for="editStatus">Status *</label>
+        <p-dropdown id="editStatus" 
+                   [options]="statusOptions" 
+                   [(ngModel)]="editOrderData.status" 
+                   name="editStatus" 
+                   placeholder="Select Status" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="editPriority">Priority *</label>
+        <p-dropdown id="editPriority" 
+                   [options]="priorityOptions" 
+                   [(ngModel)]="editOrderData.priority" 
+                   name="editPriority" 
+                   placeholder="Select Priority" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="editTotalAmount">Total Amount</label>
+        <input id="editTotalAmount" 
+               type="text" 
+               pInputText 
+               [value]="editOrderData.totalAmount | currency" 
+               readonly />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button pButton 
+              type="button" 
+              label="Cancel" 
+              class="p-button-text" 
+              (click)="closeEditDialog()" 
+              [disabled]="editOrderLoading">
+      </button>
+      <button pButton 
+              type="submit" 
+              label="Save Changes" 
+              [loading]="editOrderLoading"
+              [disabled]="!editOrderForm.form.valid">
+      </button>
+    </div>
+    
+    <div *ngIf="editOrderError" class="error-message">
+      {{ editOrderError }}
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Create Order Dialog -->
+<p-dialog header="Create New Order" 
+          [(visible)]="showCreateDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '700px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form *ngIf="createOrderData" 
+        (ngSubmit)="submitCreateOrder()" 
+        #createOrderForm="ngForm" 
+        class="order-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="createOrderNumber">Order #</label>
+        <input id="createOrderNumber" 
+               type="text" 
+               pInputText 
+               [value]="createOrderData.orderNumber" 
+               readonly />
+      </div>
+      <div class="form-field">
+        <label for="createCustomerName">Customer *</label>
+        <input id="createCustomerName" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="createOrderData.customerName" 
+               name="createCustomerName" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="createShippingAddress">Shipping Address *</label>
+        <input id="createShippingAddress" 
+               type="text" 
+               pInputText 
+               [(ngModel)]="createOrderData.shippingAddress" 
+               name="createShippingAddress" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="createOrderDate">Order Date *</label>
+        <input id="createOrderDate" 
+               type="datetime-local" 
+               pInputText 
+               [(ngModel)]="createOrderData.orderDate" 
+               name="createOrderDate" 
+               required />
+      </div>
+      <div class="form-field">
+        <label for="createStatus">Status *</label>
+        <p-dropdown id="createStatus" 
+                   [options]="statusOptions" 
+                   [(ngModel)]="createOrderData.status" 
+                   name="createStatus" 
+                   placeholder="Select Status" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="createPriority">Priority *</label>
+        <p-dropdown id="createPriority" 
+                   [options]="priorityOptions" 
+                   [(ngModel)]="createOrderData.priority" 
+                   name="createPriority" 
+                   placeholder="Select Priority" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field">
+        <label for="createTotalAmount">Total Amount</label>
+        <input id="createTotalAmount" 
+               type="text" 
+               pInputText 
+               [value]="createOrderData.totalAmount | currency" 
+               readonly />
+      </div>
+    </div>
+
+    <div class="items-section">
+      <div class="items-header">
+        <h4>Order Items</h4>
+        <button pButton 
+                type="button" 
+                label="Add Item" 
+                icon="pi pi-plus" 
+                class="p-button-sm"
+                (click)="addOrderItem()">
+        </button>
+      </div>
+      
+      <div class="items-list">
+        <div *ngFor="let item of createOrderData.items; let i = index" class="item-row">
+          <input type="text" 
+                 class="item-sku" 
+                 placeholder="SKU" 
+                 [(ngModel)]="item.SKU" 
+                 [name]="'sku' + i" 
+                 required />
+          <input type="number" 
+                 class="item-quantity" 
+                 placeholder="Qty" 
+                 min="1" 
+                 [(ngModel)]="item.quantity" 
+                 [name]="'qty' + i" 
+                 (ngModelChange)="updateCreateOrderTotal()" 
+                 required />
+          <input type="number" 
+                 class="item-price" 
+                 placeholder="Price" 
+                 min="0" 
+                 step="0.01" 
+                 [(ngModel)]="item.unitPrice" 
+                 [name]="'price' + i" 
+                 (ngModelChange)="updateCreateOrderTotal()" 
+                 required />
+          <button pButton 
+                  type="button" 
+                  icon="pi pi-trash" 
+                  class="p-button-text p-button-danger p-button-sm"
+                  (click)="removeOrderItem(i)">
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button pButton 
+              type="button" 
+              label="Cancel" 
+              class="p-button-text" 
+              (click)="closeCreateDialog()" 
+              [disabled]="createOrderLoading">
+      </button>
+      <button pButton 
+              type="submit" 
+              label="Create Order" 
+              [loading]="createOrderLoading"
+              [disabled]="!createOrderForm.form.valid">
+      </button>
+    </div>
+    
+    <div *ngIf="createOrderError" class="error-message">
+      {{ createOrderError }}
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Delete Confirmation Dialog -->
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>

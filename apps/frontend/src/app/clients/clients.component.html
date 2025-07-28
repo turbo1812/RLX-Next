@@ -1,0 +1,266 @@
+<div class="clients-container">
+  <!-- Header Section -->
+  <header class="clients-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="page-title">Client Management</h1>
+        <p class="page-subtitle">Manage your 3PL clients, their inventory, and service agreements</p>
+      </div>
+      <div class="header-actions">
+        <button pButton type="button" 
+                label="Add New Client" 
+                icon="pi pi-plus" 
+                class="add-client-btn"
+                (click)="openAddClientDialog()">
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Client Stats -->
+  <section class="client-stats">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon active-clients">
+          <i class="pi pi-users"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ activeClients }}</div>
+          <div class="stat-label">Active Clients</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon total-orders">
+          <i class="pi pi-shopping-cart"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ totalOrders }}</div>
+          <div class="stat-label">Total Orders</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon pending-deliveries">
+          <i class="pi pi-truck"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ pendingDeliveries }}</div>
+          <div class="stat-label">Pending Deliveries</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon total-revenue">
+          <i class="pi pi-dollar"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">${{ totalRevenue | number:'1.0-0' }}</div>
+          <div class="stat-label">Total Revenue</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Clients Table -->
+  <section class="clients-table-section">
+    <div class="section-header">
+      <h2 class="section-title">All Clients</h2>
+      <div class="table-controls">
+        <span class="p-input-icon-left">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" 
+                 placeholder="Search clients..." 
+                 [(ngModel)]="searchTerm"
+                 (input)="filterClients()">
+        </span>
+        <p-dropdown [options]="statusFilterOptions" 
+                   [(ngModel)]="selectedStatusFilter"
+                   placeholder="Filter by Status"
+                   (onChange)="filterClients()">
+        </p-dropdown>
+      </div>
+    </div>
+    
+    <p-table [value]="filteredClients" 
+             [paginator]="true" 
+             [rows]="10"
+             [showCurrentPageReport]="true"
+             [tableStyle]="{'min-width': '50rem'}"
+             [loading]="loading"
+             currentPageReportTemplate="Showing {first} to {last} of {totalRecords} clients"
+             [rowsPerPageOptions]="[10, 25, 50]">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Client</th>
+          <th>Code</th>
+          <th>Contact</th>
+          <th>Warehouse</th>
+          <th>Status</th>
+          <th>Orders</th>
+          <th>Revenue</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-client>
+        <tr>
+          <td>
+            <div class="client-info">
+              <div class="client-name">{{ client.name }}</div>
+              <div class="client-email">{{ client.email }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="client-code">{{ client.code }}</span>
+          </td>
+          <td>
+            <div class="contact-info">
+              <div>{{ client.contactPerson }}</div>
+              <div class="phone">{{ client.phone }}</div>
+            </div>
+          </td>
+          <td>
+            <span class="warehouse-name">{{ getWarehouseName(client.warehouseId) }}</span>
+          </td>
+          <td>
+            <p-tag [value]="client.status" 
+                   [severity]="getStatusSeverity(client.status)">
+            </p-tag>
+          </td>
+          <td>
+            <div class="orders-info">
+              <span class="order-count">{{ getClientOrderCount(client.id) }}</span>
+              <small class="order-status">{{ getClientOrderStatus(client.id) }}</small>
+            </div>
+          </td>
+          <td>
+            <div class="revenue-info">
+              <span class="revenue-amount">${{ getClientRevenue(client.id) | number:'1.0-0' }}</span>
+              <small class="revenue-period">This month</small>
+            </div>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button pButton type="button" 
+                      icon="pi pi-eye" 
+                      class="p-button-text p-button-info"
+                      pTooltip="View Details"
+                      (click)="viewClient(client)">
+              </button>
+              <button pButton type="button" 
+                      icon="pi pi-pencil" 
+                      class="p-button-text p-button-warning"
+                      pTooltip="Edit Client"
+                      (click)="editClient(client)">
+              </button>
+              <button pButton type="button" 
+                      icon="pi pi-box" 
+                      class="p-button-text p-button-success"
+                      pTooltip="View Inventory"
+                      (click)="viewInventory(client)">
+              </button>
+              <button pButton type="button" 
+                      icon="pi pi-shopping-cart" 
+                      class="p-button-text p-button-primary"
+                      pTooltip="View Orders"
+                      (click)="viewOrders(client)">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center p-4">
+            <div class="empty-state">
+              <i class="pi pi-users empty-icon"></i>
+              <h3>No clients found</h3>
+              <p>Get started by adding your first client</p>
+              <button pButton type="button" 
+                      label="Add Client" 
+                      icon="pi pi-plus"
+                      (click)="openAddClientDialog()">
+              </button>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>
+
+<!-- Add/Edit Client Dialog -->
+<p-dialog header="{{ isEditing ? 'Edit Client' : 'Add New Client' }}" 
+          [(visible)]="showClientDialog" 
+          [modal]="true" 
+          [closable]="true" 
+          [dismissableMask]="true" 
+          [style]="{width: '700px'}"
+          [draggable]="false"
+          [resizable]="false">
+  <form (ngSubmit)="submitClient()" #clientForm="ngForm" class="client-form">
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="name">Client Name *</label>
+        <input id="name" type="text" pInputText [(ngModel)]="newClient.name" name="name" required />
+      </div>
+      <div class="form-field">
+        <label for="code">Client Code *</label>
+        <input id="code" type="text" pInputText [(ngModel)]="newClient.code" name="code" required />
+      </div>
+      <div class="form-field">
+        <label for="contactPerson">Contact Person *</label>
+        <input id="contactPerson" type="text" pInputText [(ngModel)]="newClient.contactPerson" name="contactPerson" required />
+      </div>
+      <div class="form-field">
+        <label for="email">Email *</label>
+        <input id="email" type="email" pInputText [(ngModel)]="newClient.email" name="email" required />
+      </div>
+      <div class="form-field">
+        <label for="phone">Phone *</label>
+        <input id="phone" type="tel" pInputText [(ngModel)]="newClient.phone" name="phone" required />
+      </div>
+      <div class="form-field">
+        <label for="warehouse">Warehouse *</label>
+        <p-dropdown id="warehouse" 
+                   [options]="warehouses" 
+                   [(ngModel)]="newClient.warehouseId" 
+                   name="warehouse" 
+                   optionLabel="name" 
+                   optionValue="id"
+                   placeholder="Select Warehouse" 
+                   required>
+        </p-dropdown>
+      </div>
+      <div class="form-field full-width">
+        <label for="street">Street Address *</label>
+        <input id="street" type="text" pInputText [(ngModel)]="newClient.address.street" name="street" required />
+      </div>
+      <div class="form-field">
+        <label for="city">City *</label>
+        <input id="city" type="text" pInputText [(ngModel)]="newClient.address.city" name="city" required />
+      </div>
+      <div class="form-field">
+        <label for="state">State *</label>
+        <input id="state" type="text" pInputText [(ngModel)]="newClient.address.state" name="state" required />
+      </div>
+      <div class="form-field">
+        <label for="zipCode">ZIP Code *</label>
+        <input id="zipCode" type="text" pInputText [(ngModel)]="newClient.address.zipCode" name="zipCode" required />
+      </div>
+      <div class="form-field">
+        <label for="country">Country *</label>
+        <input id="country" type="text" pInputText [(ngModel)]="newClient.address.country" name="country" required />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button pButton type="button" label="Cancel" class="p-button-text" (click)="closeClientDialog()"></button>
+      <button pButton type="submit" 
+              [label]="isEditing ? 'Update Client' : 'Add Client'" 
+              [loading]="submitting"
+              [disabled]="!clientForm.form.valid">
+      </button>
+    </div>
+  </form>
+</p-dialog>

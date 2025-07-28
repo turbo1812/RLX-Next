@@ -1,58 +1,121 @@
-<div class="min-h-screen bg-gray-50">
-  <!-- Navigation Header -->
-  <header class="bg-white shadow-sm border-b">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <!-- Logo and Title -->
-        <div class="flex items-center">
-          <i class="pi pi-building text-blue-600 text-2xl mr-3"></i>
-          <h1 class="text-xl font-bold text-gray-900">WMS</h1>
+<header class="nav-header">
+  <nav class="nav-bar">
+    <!-- Logo/Brand Section -->
+    <div class="nav-brand">
+      <div class="brand-logo">
+        <i class="pi pi-cube"></i>
+      </div>
+      <span class="brand-text">RLX WMS</span>
+    </div>
+
+    <!-- Main Navigation -->
+    <div class="nav-main">
+      <!-- Core Operations -->
+      <div class="nav-group">
+        <span class="nav-group-label">Core</span>
+        <div class="nav-items">
+          <a routerLink="/dashboard" routerLinkActive="nav-active" class="nav-link">
+            <i class="nav-icon pi pi-home"></i>
+            <span class="nav-label">Dashboard</span>
+          </a>
+          <a routerLink="/clients" routerLinkActive="nav-active" class="nav-link">
+            <i class="nav-icon pi pi-users"></i>
+            <span class="nav-label">Clients</span>
+          </a>
+          <a routerLink="/inventory" routerLinkActive="nav-active" class="nav-link">
+            <i class="nav-icon pi pi-box"></i>
+            <span class="nav-label">Inventory</span>
+          </a>
+          <a routerLink="/orders" routerLinkActive="nav-active" class="nav-link">
+            <i class="nav-icon pi pi-shopping-cart"></i>
+            <span class="nav-label">Orders</span>
+          </a>
         </div>
+      </div>
 
-        <!-- Navigation Menu -->
-        <nav class="hidden md:flex space-x-8">
-          <a routerLink="/dashboard" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-            Dashboard
+      <!-- Logistics -->
+      <div class="nav-group">
+        <span class="nav-group-label">Logistics</span>
+        <div class="nav-items">
+          <a routerLink="/fleet" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-truck nav-icon"></i>
+            <span class="nav-label">Fleet</span>
           </a>
-          <a routerLink="/inventory" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-            Inventory
+          <a routerLink="/warehouse" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-building nav-icon"></i>
+            <span class="nav-label">Warehouse</span>
           </a>
-          <a routerLink="/orders" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-            Orders
+          <a routerLink="/routes" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-directions nav-icon"></i>
+            <span class="nav-label">Routes</span>
           </a>
-          <a routerLink="/fleet" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-            Fleet
-          </a>
-          <a routerLink="/warehouse" 
-             routerLinkActive="text-blue-600 border-b-2 border-blue-600" 
-             class="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">
-            Warehouse
-          </a>
-        </nav>
+        </div>
+      </div>
 
-        <!-- User Menu -->
-        <div class="flex items-center space-x-4">
-          <button class="p-2 text-gray-400 hover:text-gray-600">
-            <i class="pi pi-bell text-lg"></i>
-          </button>
-          <button class="p-2 text-gray-400 hover:text-gray-600">
-            <i class="pi pi-user text-lg"></i>
-          </button>
+      <!-- Planning & Analytics -->
+      <div class="nav-group">
+        <span class="nav-group-label">Planning</span>
+        <div class="nav-items">
+          <a routerLink="/route-planning" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-map nav-icon"></i>
+            <span class="nav-label">Route Planning</span>
+          </a>
+          <a routerLink="/scheduling" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-calendar nav-icon"></i>
+            <span class="nav-label">Scheduling</span>
+          </a>
+          <a routerLink="/analytics" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-chart-bar nav-icon"></i>
+            <span class="nav-label">Analytics</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Services & Storage -->
+      <div class="nav-group">
+        <span class="nav-group-label">Services</span>
+        <div class="nav-items">
+          <a routerLink="/services" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-cog nav-icon"></i>
+            <span class="nav-label">Services</span>
+          </a>
+          <a routerLink="/storage" routerLinkActive="nav-active" class="nav-link">
+            <i class="pi pi-database nav-icon"></i>
+            <span class="nav-label">Storage</span>
+          </a>
         </div>
       </div>
     </div>
-  </header>
 
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-    <router-outlet />
-  </main>
+    <!-- Right Side Actions -->
+    <div class="nav-actions">
+      <!-- Notifications -->
+      <button class="nav-action-btn notification-btn">
+        <i class="pi pi-bell"></i>
+        <span class="notification-badge">3</span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="user-menu">
+        <div class="user-avatar">
+          <i class="pi pi-user"></i>
+        </div>
+        <div class="user-info">
+          <span class="user-name">Admin User</span>
+          <span class="user-role">System Administrator</span>
+        </div>
+        <i class="pi pi-chevron-down user-chevron"></i>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<!-- Breadcrumbs -->
+<div class="breadcrumb-container">
+  <router-outlet name="breadcrumb"></router-outlet>
 </div>
+
+<!-- Main Content -->
+<main class="main-content">
+  <router-outlet></router-outlet>
+</main>
