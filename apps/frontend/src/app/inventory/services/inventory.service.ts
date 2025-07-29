@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
-import { InventoryItem, CreateInventoryRequest } from '../../../../libs/shared-types/inventory';
+import { InventoryItem, CreateInventoryRequest } from '../../../../../../libs/shared-types/inventory';
 import { InventoryRepository } from './inventory.repository';
 import { ErrorHandlerService } from '../../core/services/error-handler.service';
 
@@ -22,7 +22,7 @@ export class InventoryService {
     this._error$.next(null);
     
     try {
-      const items = await this.repository.getAll();
+      const items = await firstValueFrom(this.repository.getAll());
       this._items$.next(items);
     } catch (error) {
       const errorMessage = 'Failed to load inventory items';
@@ -36,7 +36,7 @@ export class InventoryService {
 
   async createItem(request: CreateInventoryRequest): Promise<InventoryItem> {
     try {
-      const newItem = await this.repository.create(request);
+      const newItem = await firstValueFrom(this.repository.create(request));
       const currentItems = this._items$.value;
       this._items$.next([...currentItems, newItem]);
       return newItem;
@@ -48,7 +48,7 @@ export class InventoryService {
 
   async updateItem(id: string, updates: Partial<CreateInventoryRequest>): Promise<InventoryItem> {
     try {
-      const updatedItem = await this.repository.update(id, updates);
+      const updatedItem = await firstValueFrom(this.repository.update(id, updates));
       const currentItems = this._items$.value;
       const updatedItems = currentItems.map(item => 
         item.id === id ? updatedItem : item
@@ -63,7 +63,7 @@ export class InventoryService {
 
   async deleteItem(id: string): Promise<void> {
     try {
-      await this.repository.delete(id);
+      await firstValueFrom(this.repository.delete(id));
       const currentItems = this._items$.value;
       const filteredItems = currentItems.filter(item => item.id !== id);
       this._items$.next(filteredItems);
