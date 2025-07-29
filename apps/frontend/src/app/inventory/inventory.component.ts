@@ -1,749 +1,451 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { RouterModule } from '@angular/router';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
-// PrimeNG Modules
-import { TableModule } from 'primeng/table';
+// PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
+import { CardModule } from 'primeng/card';
+import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DropdownModule } from 'primeng/dropdown';
+import { DialogModule } from 'primeng/dialog';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
-import { ToastModule } from 'primeng/toast';
-import { ConfirmationService, MessageService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
+
+// Shared Types
+import { InventoryItem, InventoryFilter, InventoryStatus, CreateInventoryRequest } from '../../../libs/shared-types/inventory';
 
 // Services
-import { ApiService } from '../services/api.service';
+import { InventoryService } from './services/inventory.service';
+import { ErrorHandlerService } from '../core/services/error-handler.service';
 
-// Interfaces - Extended from API service
-interface Warehouse {
-  id: string;
-  name: string;
-  location: string;
-  capacity: number;
-  status: 'active' | 'inactive' | 'maintenance';
-}
-
-interface WarehouseInventory {
-  warehouseId: string;
-  warehouseName: string;
-  quantity: number;
-  location: string;
-  lastUpdated: Date;
-}
-
-interface NewWarehouseInventory {
-  warehouseId: string;
-  quantity: number;
-  location: string;
-}
-
-interface CategoryOption {
-  label: string;
-  value: string;
-}
-
-interface WarehouseOption {
-  label: string;
-  value: string | null;
-}
-
-// Extended Inventory Item with warehouse inventory
-interface ExtendedInventoryItem {
-  id: string;
-  name: string;
-  SKU: string;
-  quantity: number;
-  location: string;
-  category: string;
-  lastUpdated: Date;
-  minStockLevel: number;
-  maxStockLevel: number;
-  supplier: string;
-  cost: number;
-  warehouseInventory: WarehouseInventory[];
-}
-
-interface NewInventoryItem {
-  name: string;
-  SKU: string;
-  category: string;
-  supplier: string;
-  cost: number;
-  minStockLevel: number;
-  maxStockLevel: number;
-  warehouseInventory: NewWarehouseInventory[];
-}
+// Shared Components
+import { PageHeaderComponent } from '../shared/components/page-header.component';
 
 @Component({
   selector: 'app-inventory',
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     FormsModule,
-    TableModule,
+    ReactiveFormsModule,
     ButtonModule,
-    DialogModule,
+    CardModule,
+    TableModule,
     InputTextModule,
     DropdownModule,
+    DialogModule,
     TagModule,
     TooltipModule,
-    ConfirmDialogModule,
-    ToastModule
+    PageHeaderComponent
   ],
-  templateUrl: './inventory.component.html',
+  providers: [MessageService],
+  template: `
+    <app-page-header title="Inventory Management" subtitle="Track and manage inventory across all warehouses">
+      <button 
+        pButton 
+        label="Add Item" 
+        icon="pi pi-plus" 
+        [disabled]="loading$()"
+        (click)="showAddDialog.set(true)">
+      </button>
+      <button 
+        pButton 
+        label="Export" 
+        icon="pi pi-download" 
+        [outlined]="true"
+        [disabled]="loading$()"
+        (click)="exportInventory()">
+      </button>
+    </app-page-header>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div class="stats-card" *ngFor="let stat of stats()">
+        <div class="stat-icon" [ngClass]="stat.colorClass">
+          <i [class]="stat.icon"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stat.value }}</div>
+          <div class="stat-label">{{ stat.label }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <p-card header="Filters" styleClass="mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <input 
+          pInputText 
+          placeholder="Search items..." 
+          [(ngModel)]="searchTerm"
+          (input)="updateFilters()">
+        
+        <p-dropdown 
+          [options]="categoryOptions" 
+          [(ngModel)]="selectedCategory"
+          placeholder="All Categories"
+          (onChange)="updateFilters()">
+        </p-dropdown>
+        
+        <p-dropdown 
+          [options]="locationOptions" 
+          [(ngModel)]="selectedLocation"
+          placeholder="All Locations"
+          (onChange)="updateFilters()">
+        </p-dropdown>
+        
+        <p-dropdown 
+          [options]="statusOptions" 
+          [(ngModel)]="selectedStatus"
+          placeholder="All Statuses"
+          (onChange)="updateFilters()">
+        </p-dropdown>
+      </div>
+    </p-card>
+
+    <!-- Inventory Table -->
+    <p-table 
+      [value]="filteredItems$()" 
+      [loading]="loading$()"
+      [paginator]="true" 
+      [rows]="50"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Showing {first} to {last} of {totalRecords} items"
+      responsiveLayout="scroll">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th pSortableColumn="name">Name <p-sortIcon field="name"></p-sortIcon></th>
+          <th pSortableColumn="sku">SKU <p-sortIcon field="sku"></p-sortIcon></th>
+          <th pSortableColumn="quantity">Quantity <p-sortIcon field="quantity"></p-sortIcon></th>
+          <th pSortableColumn="location">Location <p-sortIcon field="location"></p-sortIcon></th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.sku }}</td>
+          <td>{{ item.quantity }}</td>
+          <td>{{ item.location }}</td>
+          <td>
+            <p-tag 
+              [value]="getStatusLabel(item.status)" 
+              [severity]="getStatusSeverity(item.status)">
+            </p-tag>
+          </td>
+          <td>
+            <button 
+              pButton 
+              icon="pi pi-eye" 
+              class="p-button-text p-button-sm"
+              pTooltip="View Details"
+              (click)="viewItem(item)">
+            </button>
+            <button 
+              pButton 
+              icon="pi pi-pencil" 
+              class="p-button-text p-button-sm"
+              pTooltip="Edit Item"
+              (click)="editItem(item)">
+            </button>
+            <button 
+              pButton 
+              icon="pi pi-trash" 
+              class="p-button-text p-button-sm p-button-danger"
+              pTooltip="Delete Item"
+              (click)="deleteItem(item)">
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center py-8">
+            <div class="empty-state">
+              <i class="pi pi-box text-4xl text-gray-400 mb-4"></i>
+              <h3>No inventory items found</h3>
+              <p class="text-gray-600">Add your first inventory item to get started</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <!-- Add/Edit Dialog -->
+    <p-dialog 
+      [header]="isEditing() ? 'Edit Item' : 'Add New Item'"
+      [(visible)]="showDialog"
+      [modal]="true"
+      [style]="{width: '600px'}"
+      [draggable]="false"
+      [resizable]="false">
+      
+      <div class="grid grid-cols-1 gap-4">
+        <div>
+          <label for="itemName">Name *</label>
+          <input 
+            id="itemName"
+            pInputText 
+            [(ngModel)]="formData.name"
+            placeholder="Enter item name"
+            class="w-full">
+        </div>
+        
+        <div>
+          <label for="itemSku">SKU *</label>
+          <input 
+            id="itemSku"
+            pInputText 
+            [(ngModel)]="formData.sku"
+            placeholder="Enter SKU"
+            class="w-full">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="quantity">Quantity *</label>
+            <input 
+              id="quantity"
+              pInputText 
+              type="number"
+              [(ngModel)]="formData.quantity"
+              placeholder="0"
+              class="w-full">
+          </div>
+          
+          <div>
+            <label for="cost">Cost *</label>
+            <input 
+              id="cost"
+              pInputText 
+              type="number"
+              [(ngModel)]="formData.cost"
+              placeholder="0.00"
+              class="w-full">
+          </div>
+        </div>
+      </div>
+      
+      <ng-template pTemplate="footer">
+        <button 
+          pButton 
+          label="Cancel" 
+          icon="pi pi-times" 
+          [outlined]="true"
+          (click)="cancelDialog()">
+        </button>
+        <button 
+          pButton 
+          [label]="isEditing() ? 'Update' : 'Create'"
+          icon="pi pi-check"
+          [loading]="saving()"
+          (click)="saveItem()">
+        </button>
+      </ng-template>
+    </p-dialog>
+  `,
   styleUrls: ['./inventory.component.scss'],
-  providers: [ConfirmationService, MessageService]
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class InventoryComponent implements OnInit, OnDestroy {
-  // Data Properties
-  inventoryItems: ExtendedInventoryItem[] = [];
-  filteredItems: ExtendedInventoryItem[] = [];
-  warehouses: Warehouse[] = [];
-  
-  // Loading States
-  loading = false;
-  addItemLoading = false;
-  editItemLoading = false;
-  
-  // Dialog States
-  showAddDialog = false;
-  showEditDialog = false;
-  showViewDialog = false;
-  showTransferDialog = false;
-  
-  // Form Data
-  newItem: NewInventoryItem = this.getEmptyNewItem();
-  editItemData: ExtendedInventoryItem | null = null;
-  selectedItem: ExtendedInventoryItem | null = null;
-  transferData: {
-    itemId: string;
-    itemName: string;
-    fromWarehouseId: string;
-    toWarehouseId: string;
-    quantity: number;
-  } | null = null;
-  
-  // Search and Filter
-  searchTerm = '';
-  selectedCategoryFilter: string | null = null;
-  selectedWarehouseFilter: string | null = null;
-  selectedStockLevelFilter: string | null = null;
-  
-  // Error Messages
-  addItemError: string | undefined = undefined;
-  editItemError: string | undefined = undefined;
-  transferError: string | undefined = undefined;
-  
-  // Dropdown Options
-  categoryOptions: CategoryOption[] = [
-    { label: 'Electronics', value: 'Electronics' },
-    { label: 'Furniture', value: 'Furniture' },
-    { label: 'Clothing', value: 'Clothing' },
-    { label: 'Books', value: 'Books' },
-    { label: 'Tools', value: 'Tools' },
-    { label: 'Automotive', value: 'Automotive' },
-    { label: 'Sports', value: 'Sports' },
-    { label: 'Home & Garden', value: 'Home & Garden' },
-    { label: 'Office Supplies', value: 'Office Supplies' },
-    { label: 'Other', value: 'Other' }
-  ];
-  
-  categoryFilterOptions = [
-    { label: 'All Categories', value: null },
-    ...this.categoryOptions
-  ];
-  
-  stockLevelFilterOptions = [
-    { label: 'All Stock Levels', value: null },
-    { label: 'Out of Stock', value: 'out_of_stock' },
-    { label: 'Low Stock', value: 'low_stock' },
-    { label: 'In Stock', value: 'in_stock' },
-    { label: 'Overstocked', value: 'overstocked' }
-  ];
-  
-  // Subscriptions
-  private subscriptions = new Subscription();
+  private readonly inventoryService = inject(InventoryService);
+  private readonly errorHandler = inject(ErrorHandlerService);
+  private readonly messageService = inject(MessageService);
 
-  constructor(
-    private apiService: ApiService,
-    private confirmationService: ConfirmationService,
-    private messageService: MessageService
-  ) {}
+  // Reactive State
+  readonly loading$ = this.inventoryService.loading$;
+  readonly items$ = this.inventoryService.items$;
+  readonly error$ = this.inventoryService.error$;
+
+  // UI State Signals
+  showDialog = signal(false);
+  isEditing = signal(false);
+  saving = signal(false);
+  selectedItem = signal<InventoryItem | null>(null);
+
+  // Filter State
+  searchTerm = '';
+  selectedCategory = '';
+  selectedLocation = '';
+  selectedStatus = '';
+
+  // Form Data
+  formData = signal<Partial<CreateInventoryRequest>>({});
+
+  // Computed Properties
+  readonly filteredItems$ = computed(() => {
+    const items = this.items$();
+    if (!items) return [];
+
+    return items.filter(item => {
+      const matchesSearch = !this.searchTerm || 
+        item.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        item.sku.toLowerCase().includes(this.searchTerm.toLowerCase());
+      
+      const matchesCategory = !this.selectedCategory || item.category === this.selectedCategory;
+      const matchesLocation = !this.selectedLocation || item.location === this.selectedLocation;
+      const matchesStatus = !this.selectedStatus || item.status === this.selectedStatus;
+
+      return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
+    });
+  });
+
+  readonly stats = computed(() => {
+    const items = this.items$();
+    if (!items) return [];
+
+    const total = items.length;
+    const lowStock = items.filter(item => item.status === InventoryStatus.LOW_STOCK).length;
+    const outOfStock = items.filter(item => item.status === InventoryStatus.OUT_OF_STOCK).length;
+    const inStock = items.filter(item => item.status === InventoryStatus.IN_STOCK).length;
+
+    return [
+      { label: 'Total Items', value: total, icon: 'pi pi-box', colorClass: 'stat-blue' },
+      { label: 'In Stock', value: inStock, icon: 'pi pi-check-circle', colorClass: 'stat-green' },
+      { label: 'Low Stock', value: lowStock, icon: 'pi pi-exclamation-triangle', colorClass: 'stat-orange' },
+      { label: 'Out of Stock', value: outOfStock, icon: 'pi pi-times-circle', colorClass: 'stat-red' }
+    ];
+  });
+
+  // Dropdown Options
+  categoryOptions = [
+    { label: 'All Categories', value: '' },
+    { label: 'Electronics', value: 'electronics' },
+    { label: 'Clothing', value: 'clothing' },
+    { label: 'Food', value: 'food' }
+  ];
+
+  locationOptions = [
+    { label: 'All Locations', value: '' },
+    { label: 'Warehouse A', value: 'warehouse-a' },
+    { label: 'Warehouse B', value: 'warehouse-b' }
+  ];
+
+  statusOptions = [
+    { label: 'All Statuses', value: '' },
+    { label: 'In Stock', value: InventoryStatus.IN_STOCK },
+    { label: 'Low Stock', value: InventoryStatus.LOW_STOCK },
+    { label: 'Out of Stock', value: InventoryStatus.OUT_OF_STOCK }
+  ];
 
   ngOnInit(): void {
-    this.loadWarehouses();
-    this.loadInventoryItems();
-    this.subscribeToApiStates();
+    this.loadInventory();
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
+    // Cleanup handled by service
   }
 
-  // ============================================================================
-  // PRIVATE METHODS
-  // ============================================================================
-
-  private subscribeToApiStates(): void {
-    this.subscriptions.add(
-      this.apiService.loading$.subscribe(loading => {
-        this.loading = loading;
-      })
-    );
-    
-    this.subscriptions.add(
-      this.apiService.error$.subscribe(error => {
-        if (error) {
-          console.error('API Error:', error);
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'An error occurred while loading data'
-          });
-        }
-      })
-    );
-  }
-
-  private loadWarehouses(): void {
-    // For now, use mock data since getWarehouses doesn't exist in API service
-    this.loadMockWarehouses();
-  }
-
-  private loadMockWarehouses(): void {
-    this.warehouses = [
-      { id: 'WH-001', name: 'Main Warehouse', location: 'New York, NY', capacity: 10000, status: 'active' },
-      { id: 'WH-002', name: 'West Coast Hub', location: 'Los Angeles, CA', capacity: 8000, status: 'active' },
-      { id: 'WH-003', name: 'Central Distribution', location: 'Chicago, IL', capacity: 6000, status: 'active' },
-      { id: 'WH-004', name: 'South Regional', location: 'Houston, TX', capacity: 5000, status: 'active' },
-      { id: 'WH-005', name: 'Cold Storage', location: 'Minneapolis, MN', capacity: 3000, status: 'maintenance' }
-    ];
-  }
-
-  private loadInventoryItems(): void {
-    this.subscriptions.add(
-      this.apiService.getInventoryItems().subscribe({
-        next: (items) => {
-          // Convert API items to extended items with warehouse inventory
-          this.inventoryItems = items.map(item => this.convertToExtendedItem(item));
-          this.filteredItems = [...this.inventoryItems];
-        },
-        error: (error) => {
-          console.error('Failed to load inventory items:', error);
-          this.loadMockData();
-        }
-      })
-    );
-  }
-
-  private convertToExtendedItem(item: any): ExtendedInventoryItem {
-    return {
-      ...item,
-      warehouseInventory: this.generateMockWarehouseInventory(item)
-    };
-  }
-
-  private generateMockWarehouseInventory(item: any): WarehouseInventory[] {
-    // Generate mock warehouse inventory based on the item
-    const warehouses = this.warehouses.slice(0, Math.floor(Math.random() * 3) + 1);
-    return warehouses.map(warehouse => ({
-      warehouseId: warehouse.id,
-      warehouseName: warehouse.name,
-      quantity: Math.floor(Math.random() * item.quantity) + 1,
-      location: `A${Math.floor(Math.random() * 10)}-B${Math.floor(Math.random() * 10)}`,
-      lastUpdated: new Date()
-    }));
-  }
-
-  private loadMockData(): void {
-    this.inventoryItems = [
-      {
-        id: 'INV-001',
-        name: 'Laptop Computer',
-        SKU: 'LAP-001',
-        quantity: 48,
-        location: 'A1-B2',
-        category: 'Electronics',
-        supplier: 'TechCorp',
-        cost: 899.99,
-        minStockLevel: 10,
-        maxStockLevel: 100,
-        lastUpdated: new Date('2024-01-15'),
-        warehouseInventory: [
-          { warehouseId: 'WH-001', warehouseName: 'Main Warehouse', quantity: 25, location: 'A1-B2', lastUpdated: new Date('2024-01-15') },
-          { warehouseId: 'WH-002', warehouseName: 'West Coast Hub', quantity: 15, location: 'C3-D4', lastUpdated: new Date('2024-01-14') },
-          { warehouseId: 'WH-003', warehouseName: 'Central Distribution', quantity: 8, location: 'E5-F6', lastUpdated: new Date('2024-01-13') }
-        ]
-      },
-      {
-        id: 'INV-002',
-        name: 'Office Chair',
-        SKU: 'CHA-002',
-        quantity: 15,
-        location: 'G7-H8',
-        category: 'Furniture',
-        supplier: 'OfficeMax',
-        cost: 199.99,
-        minStockLevel: 5,
-        maxStockLevel: 50,
-        lastUpdated: new Date('2024-01-14'),
-        warehouseInventory: [
-          { warehouseId: 'WH-001', warehouseName: 'Main Warehouse', quantity: 12, location: 'G7-H8', lastUpdated: new Date('2024-01-14') },
-          { warehouseId: 'WH-003', warehouseName: 'Central Distribution', quantity: 3, location: 'I9-J10', lastUpdated: new Date('2024-01-12') }
-        ]
-      },
-      {
-        id: 'INV-003',
-        name: 'Wireless Mouse',
-        SKU: 'MOU-003',
-        quantity: 63,
-        location: 'K11-L12',
-        category: 'Electronics',
-        supplier: 'TechCorp',
-        cost: 29.99,
-        minStockLevel: 20,
-        maxStockLevel: 200,
-        lastUpdated: new Date('2024-01-13'),
-        warehouseInventory: [
-          { warehouseId: 'WH-001', warehouseName: 'Main Warehouse', quantity: 0, location: 'K11-L12', lastUpdated: new Date('2024-01-13') },
-          { warehouseId: 'WH-002', warehouseName: 'West Coast Hub', quantity: 45, location: 'M13-N14', lastUpdated: new Date('2024-01-12') },
-          { warehouseId: 'WH-004', warehouseName: 'South Regional', quantity: 18, location: 'O15-P16', lastUpdated: new Date('2024-01-11') }
-        ]
-      },
-      {
-        id: 'INV-004',
-        name: 'Desk Lamp',
-        SKU: 'LAM-004',
-        quantity: 37,
-        location: 'Q17-R18',
-        category: 'Home & Garden',
-        supplier: 'HomeDepot',
-        cost: 49.99,
-        minStockLevel: 8,
-        maxStockLevel: 80,
-        lastUpdated: new Date('2024-01-12'),
-        warehouseInventory: [
-          { warehouseId: 'WH-001', warehouseName: 'Main Warehouse', quantity: 22, location: 'Q17-R18', lastUpdated: new Date('2024-01-12') },
-          { warehouseId: 'WH-002', warehouseName: 'West Coast Hub', quantity: 15, location: 'S19-T20', lastUpdated: new Date('2024-01-10') }
-        ]
-      }
-    ];
-    this.filteredItems = [...this.inventoryItems];
-  }
-
-  private getEmptyNewItem(): NewInventoryItem {
-    return {
-      name: '',
-      SKU: '',
-      category: '',
-      supplier: '',
-      cost: 0,
-      minStockLevel: 0,
-      maxStockLevel: 0,
-      warehouseInventory: []
-    };
-  }
-
-  private resetForm(): void {
-    this.addItemError = undefined;
-    this.editItemError = undefined;
-    this.transferError = undefined;
-  }
-
-  // ============================================================================
-  // PUBLIC METHODS - STATS AND UTILITIES
-  // ============================================================================
-
-  getTotalItems(): number {
-    return this.inventoryItems.length;
-  }
-
-  getLowStockCount(): number {
-    return this.inventoryItems.filter(item => 
-      item.warehouseInventory.some(wi => 
-        wi.quantity <= item.minStockLevel && wi.quantity > 0
-      )
-    ).length;
-  }
-
-  getOutOfStockCount(): number {
-    return this.inventoryItems.filter(item => 
-      item.warehouseInventory.every(wi => wi.quantity === 0)
-    ).length;
-  }
-
-  getTotalValue(): number {
-    return this.inventoryItems.reduce((total, item) => {
-      const totalQuantity = item.warehouseInventory.reduce((sum, wi) => sum + wi.quantity, 0);
-      return total + (item.cost * totalQuantity);
-    }, 0);
-  }
-
-  getWarehouseOptions(): WarehouseOption[] {
-    return this.warehouses.map(warehouse => ({
-      label: warehouse.name,
-      value: warehouse.id
-    }));
-  }
-
-  getWarehouseFilterOptions(): WarehouseOption[] {
-    return [
-      { label: 'All Warehouses', value: null },
-      ...this.getWarehouseOptions()
-    ];
-  }
-
-  getTotalQuantityForItem(item: ExtendedInventoryItem): number {
-    return item.warehouseInventory.reduce((sum, wi) => sum + wi.quantity, 0);
-  }
-
-  getStockLevelForItem(item: ExtendedInventoryItem): 'out_of_stock' | 'low_stock' | 'in_stock' | 'overstocked' {
-    const totalQuantity = this.getTotalQuantityForItem(item);
-    if (totalQuantity === 0) return 'out_of_stock';
-    if (totalQuantity <= item.minStockLevel) return 'low_stock';
-    if (totalQuantity >= item.maxStockLevel) return 'overstocked';
-    return 'in_stock';
-  }
-
-  getStatusSeverity(stockLevel: 'out_of_stock' | 'low_stock' | 'in_stock' | 'overstocked'): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
-    switch (stockLevel) {
-      case 'out_of_stock': return 'danger';
-      case 'low_stock': return 'warn';
-      case 'in_stock': return 'success';
-      case 'overstocked': return 'info';
-      default: return 'secondary';
+  async loadInventory(): Promise<void> {
+    try {
+      await this.inventoryService.loadItems();
+    } catch (error) {
+      this.errorHandler.handleError(error, 'InventoryComponent.loadInventory');
     }
   }
 
-  getStatusText(stockLevel: 'out_of_stock' | 'low_stock' | 'in_stock' | 'overstocked'): string {
-    switch (stockLevel) {
-      case 'out_of_stock': return 'Out of Stock';
-      case 'low_stock': return 'Low Stock';
-      case 'in_stock': return 'In Stock';
-      case 'overstocked': return 'Overstocked';
-      default: return 'Unknown';
+  updateFilters(): void {
+    // Filters are reactive through computed properties
+  }
+
+  showAddDialog(): void {
+    this.isEditing.set(false);
+    this.formData.set({});
+    this.showDialog.set(true);
+  }
+
+  viewItem(item: InventoryItem): void {
+    this.selectedItem.set(item);
+    // Show view dialog or navigate to detail page
+  }
+
+  editItem(item: InventoryItem): void {
+    this.isEditing.set(true);
+    this.selectedItem.set(item);
+    this.formData.set({ ...item });
+    this.showDialog.set(true);
+  }
+
+  async deleteItem(item: InventoryItem): Promise<void> {
+    try {
+      await this.inventoryService.deleteItem(item.id);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Item deleted successfully'
+      });
+    } catch (error) {
+      this.errorHandler.handleError(error, 'InventoryComponent.deleteItem');
     }
   }
 
-  getCategorySeverity(category: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
-    const severityMap: { [key: string]: 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined } = {
-      'Electronics': 'info',
-      'Furniture': 'success',
-      'Clothing': 'warn',
-      'Books': 'info',
-      'Tools': 'warn',
-      'Automotive': 'danger',
-      'Sports': 'success',
-      'Home & Garden': 'success',
-      'Office Supplies': 'info',
-      'Other': 'info'
-    };
-    return severityMap[category] || 'info';
-  }
-
-  // ============================================================================
-  // PUBLIC METHODS - SEARCH AND FILTER
-  // ============================================================================
-
-  filterItems(): void {
-    let filtered = [...this.inventoryItems];
-    
-    // Apply search filter
-    if (this.searchTerm) {
-      const search = this.searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(search) ||
-        item.SKU.toLowerCase().includes(search) ||
-        item.category.toLowerCase().includes(search) ||
-        item.supplier?.toLowerCase().includes(search)
-      );
-    }
-    
-    // Apply category filter
-    if (this.selectedCategoryFilter) {
-      filtered = filtered.filter(item => item.category === this.selectedCategoryFilter);
-    }
-    
-    // Apply warehouse filter
-    if (this.selectedWarehouseFilter) {
-      filtered = filtered.filter(item => 
-        item.warehouseInventory.some(wi => wi.warehouseId === this.selectedWarehouseFilter)
-      );
-    }
-    
-    // Apply stock level filter
-    if (this.selectedStockLevelFilter) {
-      filtered = filtered.filter(item => 
-        this.getStockLevelForItem(item) === this.selectedStockLevelFilter
-      );
-    }
-    
-    this.filteredItems = filtered;
-  }
-
-  // ============================================================================
-  // PUBLIC METHODS - DIALOG ACTIONS
-  // ============================================================================
-
-  addInventoryItem(): void {
-    this.newItem = this.getEmptyNewItem();
-    this.showAddDialog = true;
-    this.resetForm();
-  }
-
-  closeAddDialog(): void {
-    this.showAddDialog = false;
-    this.newItem = this.getEmptyNewItem();
-    this.resetForm();
-  }
-
-  addWarehouseInventory(): void {
-    this.newItem.warehouseInventory.push({
-      warehouseId: '',
-      quantity: 0,
-      location: ''
-    });
-  }
-
-  removeWarehouseInventory(index: number): void {
-    this.newItem.warehouseInventory.splice(index, 1);
-  }
-
-  submitAddItem(): void {
-    if (!this.isValidNewItem()) return;
-
-    this.addItemLoading = true;
-    this.addItemError = undefined;
-
-    // Convert to API service format
-    const totalQuantity = this.newItem.warehouseInventory.reduce((sum, wi) => sum + wi.quantity, 0);
-    const primaryLocation = this.newItem.warehouseInventory[0]?.location || '';
-
-    const payload = {
-      name: this.newItem.name,
-      SKU: this.newItem.SKU,
-      quantity: totalQuantity,
-      location: primaryLocation,
-      category: this.newItem.category,
-      supplier: this.newItem.supplier,
-      cost: this.newItem.cost,
-      minStockLevel: this.newItem.minStockLevel,
-      maxStockLevel: this.newItem.maxStockLevel
-    };
-
-    this.subscriptions.add(
-      this.apiService.createInventoryItem(payload).subscribe({
-        next: (item) => {
-          const extendedItem = this.convertToExtendedItem(item);
-          this.inventoryItems = [...this.inventoryItems, extendedItem];
-          this.filterItems();
-          this.addItemLoading = false;
-          this.closeAddDialog();
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: 'Inventory item created successfully'
-          });
-        },
-        error: (error) => {
-          this.addItemLoading = false;
-          this.addItemError = error.message || 'Failed to create inventory item';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: this.addItemError
-          });
-        }
-      })
-    );
-  }
-
-  editItem(item: ExtendedInventoryItem): void {
-    this.editItemData = { ...item };
-    this.showEditDialog = true;
-    this.resetForm();
-  }
-
-  closeEditDialog(): void {
-    this.showEditDialog = false;
-    this.editItemData = null;
-    this.resetForm();
-  }
-
-  submitEditItem(): void {
-    if (!this.editItemData || !this.isValidEditItem()) return;
-
-    this.editItemLoading = true;
-    this.editItemError = undefined;
-
-    const payload = {
-      name: this.editItemData.name,
-      SKU: this.editItemData.SKU,
-      quantity: this.getTotalQuantityForItem(this.editItemData),
-      location: this.editItemData.location,
-      category: this.editItemData.category,
-      supplier: this.editItemData.supplier,
-      cost: this.editItemData.cost,
-      minStockLevel: this.editItemData.minStockLevel,
-      maxStockLevel: this.editItemData.maxStockLevel
-    };
-
-    this.subscriptions.add(
-      this.apiService.updateInventoryItem(this.editItemData.id, payload).subscribe({
-        next: (updatedItem) => {
-          const extendedItem = this.convertToExtendedItem(updatedItem);
-          this.inventoryItems = this.inventoryItems.map(item => 
-            item.id === extendedItem.id ? extendedItem : item
-          );
-          this.filterItems();
-          this.editItemLoading = false;
-          this.closeEditDialog();
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Success',
-            detail: 'Inventory item updated successfully'
-          });
-        },
-        error: (error) => {
-          this.editItemLoading = false;
-          this.editItemError = error.message || 'Failed to update inventory item';
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: this.editItemError
-          });
-        }
-      })
-    );
-  }
-
-  viewItem(item: ExtendedInventoryItem): void {
-    this.selectedItem = item;
-    this.showViewDialog = true;
-  }
-
-  transferStock(item: ExtendedInventoryItem): void {
-    this.transferData = {
-      itemId: item.id,
-      itemName: item.name,
-      fromWarehouseId: '',
-      toWarehouseId: '',
-      quantity: 0
-    };
-    this.showTransferDialog = true;
-    this.resetForm();
-  }
-
-  closeTransferDialog(): void {
-    this.showTransferDialog = false;
-    this.transferData = null;
-    this.resetForm();
-  }
-
-  submitTransfer(): void {
-    if (!this.transferData || !this.isValidTransfer()) return;
-
-    this.confirmationService.confirm({
-      message: `Are you sure you want to transfer ${this.transferData.quantity} units of ${this.transferData.itemName} from ${this.getWarehouseName(this.transferData.fromWarehouseId)} to ${this.getWarehouseName(this.transferData.toWarehouseId)}?`,
-      header: 'Confirm Stock Transfer',
-      icon: 'pi pi-exchange',
-      accept: () => {
-        // TODO: Implement stock transfer API call
+  async saveItem(): Promise<void> {
+    this.saving.set(true);
+    try {
+      const data = this.formData();
+      if (this.isEditing()) {
+        await this.inventoryService.updateItem(this.selectedItem()!.id, data);
         this.messageService.add({
           severity: 'success',
-          summary: 'Transfer Complete',
-          detail: 'Stock transfer completed successfully'
+          summary: 'Success',
+          detail: 'Item updated successfully'
         });
-        this.closeTransferDialog();
+      } else {
+        await this.inventoryService.createItem(data as CreateInventoryRequest);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Item created successfully'
+        });
       }
-    });
+      this.cancelDialog();
+    } catch (error) {
+      this.errorHandler.handleError(error, 'InventoryComponent.saveItem');
+    } finally {
+      this.saving.set(false);
+    }
   }
 
-  deleteItem(item: ExtendedInventoryItem): void {
-    this.confirmationService.confirm({
-      message: `Are you sure you want to delete ${item.name}? This action cannot be undone.`,
-      header: 'Confirm Deletion',
-      icon: 'pi pi-exclamation-triangle',
-      accept: () => {
-        this.performDelete(item);
-      }
-    });
+  cancelDialog(): void {
+    this.showDialog.set(false);
+    this.formData.set({});
+    this.selectedItem.set(null);
   }
-
-  private performDelete(item: ExtendedInventoryItem): void {
-    this.subscriptions.add(
-      this.apiService.deleteInventoryItem(item.id).subscribe({
-        next: () => {
-          this.inventoryItems = this.inventoryItems.filter(i => i.id !== item.id);
-          this.filterItems();
-          this.messageService.add({
-            severity: 'success',
-            summary: 'Deleted',
-            detail: 'Inventory item deleted successfully'
-          });
-        },
-        error: (error) => {
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: error.message || 'Failed to delete inventory item'
-          });
-        }
-      })
-    );
-  }
-
-  // ============================================================================
-  // PUBLIC METHODS - EXPORT
-  // ============================================================================
 
   exportInventory(): void {
-    // TODO: Implement export functionality
+    // Implement export functionality
     this.messageService.add({
       severity: 'info',
       summary: 'Export',
-      detail: 'Export functionality will be implemented soon'
+      detail: 'Export functionality not yet implemented'
     });
   }
 
-  // ============================================================================
-  // PRIVATE VALIDATION METHODS
-  // ============================================================================
-
-  private isValidNewItem(): boolean {
-    return !!(this.newItem.name && 
-              this.newItem.SKU && 
-              this.newItem.category && 
-              this.newItem.supplier &&
-              this.newItem.cost > 0 &&
-              this.newItem.minStockLevel >= 0 &&
-              this.newItem.maxStockLevel > this.newItem.minStockLevel &&
-              this.newItem.warehouseInventory.length > 0);
+  getStatusLabel(status: InventoryStatus): string {
+    const labels = {
+      [InventoryStatus.IN_STOCK]: 'In Stock',
+      [InventoryStatus.LOW_STOCK]: 'Low Stock',
+      [InventoryStatus.OUT_OF_STOCK]: 'Out of Stock',
+      [InventoryStatus.DISCONTINUED]: 'Discontinued'
+    };
+    return labels[status] || status;
   }
 
-  private isValidEditItem(): boolean {
-    return !!(this.editItemData?.name && 
-              this.editItemData?.SKU && 
-              this.editItemData?.category && 
-              this.editItemData?.supplier &&
-              this.editItemData?.cost > 0 &&
-              this.editItemData?.minStockLevel >= 0 &&
-              this.editItemData?.maxStockLevel > this.editItemData?.minStockLevel);
-  }
-
-  private isValidTransfer(): boolean {
-    return !!(this.transferData?.fromWarehouseId && 
-              this.transferData?.toWarehouseId && 
-              this.transferData?.fromWarehouseId !== this.transferData?.toWarehouseId &&
-              this.transferData?.quantity > 0);
-  }
-
-  private getWarehouseName(warehouseId: string): string {
-    const warehouse = this.warehouses.find(w => w.id === warehouseId);
-    return warehouse?.name || 'Unknown Warehouse';
+  getStatusSeverity(status: InventoryStatus): string {
+    const severities = {
+      [InventoryStatus.IN_STOCK]: 'success',
+      [InventoryStatus.LOW_STOCK]: 'warning',
+      [InventoryStatus.OUT_OF_STOCK]: 'danger',
+      [InventoryStatus.DISCONTINUED]: 'secondary'
+    };
+    return severities[status] || 'info';
   }
 } 
