@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetection
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { Observable, map, combineLatest } from 'rxjs';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -15,7 +16,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 
 // Shared Types
-import { InventoryItem, InventoryFilter, InventoryStatus, CreateInventoryRequest } from '../../../libs/shared-types/inventory';
+import { InventoryItem, InventoryFilter, InventoryStatus, CreateInventoryRequest } from '../../../../../libs/shared-types/inventory';
 
 // Services
 import { InventoryService } from './services/inventory.service';
@@ -49,22 +50,22 @@ import { PageHeaderComponent } from '../shared/components/page-header.component'
         pButton 
         label="Add Item" 
         icon="pi pi-plus" 
-        [disabled]="loading$()"
-        (click)="showAddDialog.set(true)">
+        [disabled]="loading$ | async"
+        (click)="showDialog.set(true)">
       </button>
       <button 
         pButton 
         label="Export" 
         icon="pi pi-download" 
         [outlined]="true"
-        [disabled]="loading$()"
+        [disabled]="loading$ | async"
         (click)="exportInventory()">
       </button>
     </app-page-header>
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <div class="stats-card" *ngFor="let stat of stats()">
+      <div class="stats-card" *ngFor="let stat of stats$ | async">
         <div class="stat-icon" [ngClass]="stat.colorClass">
           <i [class]="stat.icon"></i>
         </div>
@@ -109,8 +110,8 @@ import { PageHeaderComponent } from '../shared/components/page-header.component'
 
     <!-- Inventory Table -->
     <p-table 
-      [value]="filteredItems$()" 
-      [loading]="loading$()"
+              [value]="(filteredItems$ | async) || []" 
+              [loading]="loading$ | async"
       [paginator]="true" 
       [rows]="50"
       [showCurrentPageReport]="true"
@@ -204,7 +205,7 @@ import { PageHeaderComponent } from '../shared/components/page-header.component'
           <input 
             id="itemSku"
             pInputText 
-            [(ngModel)]="formData.sku"
+            [(ngModel)]="formData.SKU"
             placeholder="Enter SKU"
             class="w-full">
         </div>
@@ -227,7 +228,7 @@ import { PageHeaderComponent } from '../shared/components/page-header.component'
               id="cost"
               pInputText 
               type="number"
-              [(ngModel)]="formData.cost"
+              [(ngModel)]="formData.unitPrice"
               placeholder="0.00"
               class="w-full">
           </div>
@@ -278,42 +279,44 @@ export class InventoryComponent implements OnInit, OnDestroy {
   selectedStatus = '';
 
   // Form Data
-  formData = signal<Partial<CreateInventoryRequest>>({});
+  formData: Partial<CreateInventoryRequest> = {};
 
-  // Computed Properties
-  readonly filteredItems$ = computed(() => {
-    const items = this.items$();
-    if (!items) return [];
+  // Computed Properties using Observables
+  readonly filteredItems$ = this.items$.pipe(
+    map(items => {
+      if (!items) return [];
 
-    return items.filter(item => {
-      const matchesSearch = !this.searchTerm || 
-        item.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        item.sku.toLowerCase().includes(this.searchTerm.toLowerCase());
-      
-      const matchesCategory = !this.selectedCategory || item.category === this.selectedCategory;
-      const matchesLocation = !this.selectedLocation || item.location === this.selectedLocation;
-      const matchesStatus = !this.selectedStatus || item.status === this.selectedStatus;
+      return items.filter(item => {
+        const matchesSearch = !this.searchTerm || 
+          item.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          item.sku.toLowerCase().includes(this.searchTerm.toLowerCase());
+        
+        const matchesCategory = !this.selectedCategory || item.category === this.selectedCategory;
+        const matchesLocation = !this.selectedLocation || item.location === this.selectedLocation;
+        const matchesStatus = !this.selectedStatus || item.status === this.selectedStatus;
 
-      return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
-    });
-  });
+        return matchesSearch && matchesCategory && matchesLocation && matchesStatus;
+      });
+    })
+  );
 
-  readonly stats = computed(() => {
-    const items = this.items$();
-    if (!items) return [];
+  readonly stats$ = this.items$.pipe(
+    map(items => {
+      if (!items) return [];
 
-    const total = items.length;
-    const lowStock = items.filter(item => item.status === InventoryStatus.LOW_STOCK).length;
-    const outOfStock = items.filter(item => item.status === InventoryStatus.OUT_OF_STOCK).length;
-    const inStock = items.filter(item => item.status === InventoryStatus.IN_STOCK).length;
+      const total = items.length;
+      const lowStock = items.filter(item => item.status === InventoryStatus.LOW_STOCK).length;
+      const outOfStock = items.filter(item => item.status === InventoryStatus.OUT_OF_STOCK).length;
+      const inStock = items.filter(item => item.status === InventoryStatus.IN_STOCK).length;
 
-    return [
-      { label: 'Total Items', value: total, icon: 'pi pi-box', colorClass: 'stat-blue' },
-      { label: 'In Stock', value: inStock, icon: 'pi pi-check-circle', colorClass: 'stat-green' },
-      { label: 'Low Stock', value: lowStock, icon: 'pi pi-exclamation-triangle', colorClass: 'stat-orange' },
-      { label: 'Out of Stock', value: outOfStock, icon: 'pi pi-times-circle', colorClass: 'stat-red' }
-    ];
-  });
+      return [
+        { label: 'Total Items', value: total, icon: 'pi pi-box', colorClass: 'stat-blue' },
+        { label: 'In Stock', value: inStock, icon: 'pi pi-check-circle', colorClass: 'stat-green' },
+        { label: 'Low Stock', value: lowStock, icon: 'pi pi-exclamation-triangle', colorClass: 'stat-orange' },
+        { label: 'Out of Stock', value: outOfStock, icon: 'pi pi-times-circle', colorClass: 'stat-red' }
+      ];
+    })
+  );
 
   // Dropdown Options
   categoryOptions = [
@@ -358,7 +361,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   showAddDialog(): void {
     this.isEditing.set(false);
-    this.formData.set({});
+    this.formData = {};
     this.showDialog.set(true);
   }
 
@@ -370,7 +373,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   editItem(item: InventoryItem): void {
     this.isEditing.set(true);
     this.selectedItem.set(item);
-    this.formData.set({ ...item });
+    this.formData = { ...item };
     this.showDialog.set(true);
   }
 
@@ -390,7 +393,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   async saveItem(): Promise<void> {
     this.saving.set(true);
     try {
-      const data = this.formData();
+      const data = this.formData;
       if (this.isEditing()) {
         await this.inventoryService.updateItem(this.selectedItem()!.id, data);
         this.messageService.add({
@@ -416,7 +419,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   cancelDialog(): void {
     this.showDialog.set(false);
-    this.formData.set({});
+    this.formData = {};
     this.selectedItem.set(null);
   }
 
@@ -433,18 +436,16 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const labels = {
       [InventoryStatus.IN_STOCK]: 'In Stock',
       [InventoryStatus.LOW_STOCK]: 'Low Stock',
-      [InventoryStatus.OUT_OF_STOCK]: 'Out of Stock',
-      [InventoryStatus.DISCONTINUED]: 'Discontinued'
+      [InventoryStatus.OUT_OF_STOCK]: 'Out of Stock'
     };
     return labels[status] || status;
   }
 
-  getStatusSeverity(status: InventoryStatus): string {
+  getStatusSeverity(status: InventoryStatus): "success" | "info" | "warn" | "danger" | "secondary" | "contrast" {
     const severities = {
-      [InventoryStatus.IN_STOCK]: 'success',
-      [InventoryStatus.LOW_STOCK]: 'warning',
-      [InventoryStatus.OUT_OF_STOCK]: 'danger',
-      [InventoryStatus.DISCONTINUED]: 'secondary'
+      [InventoryStatus.IN_STOCK]: 'success' as const,
+      [InventoryStatus.LOW_STOCK]: 'warn' as const,
+      [InventoryStatus.OUT_OF_STOCK]: 'danger' as const
     };
     return severities[status] || 'info';
   }
