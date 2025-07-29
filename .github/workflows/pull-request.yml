@@ -1,0 +1,185 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  # Frontend Checks
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd apps/frontend
+        npm ci
+        
+    - name: Run linting
+      run: |
+        cd apps/frontend
+        npm run lint
+        
+    - name: Run tests
+      run: |
+        cd apps/frontend
+        npm run test -- --watch=false --coverage
+        
+    - name: Build application
+      run: |
+        cd apps/frontend
+        npm run build
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: apps/frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # Backend Checks
+  backend-checks:
+    name: Backend Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Restore dependencies
+      run: |
+        cd apps/backend
+        dotnet restore
+        
+    - name: Build application
+      run: |
+        cd apps/backend
+        dotnet build --no-restore --configuration Release
+        
+    - name: Run tests
+      run: |
+        cd apps/backend
+        dotnet test --no-build --verbosity normal --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: apps/backend/coverage/coverage.cobertura.xml
+        flags: backend
+        name: backend-coverage
+
+  # Security Checks
+  security-checks:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code Quality
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=rlx-next
+          -Dsonar.organization=rlx-org
+          -Dsonar.sources=apps
+          -Dsonar.tests=apps
+          -Dsonar.javascript.lcov.reportPaths=apps/frontend/coverage/lcov.info
+          -Dsonar.cs.opencover.reportsPaths=apps/backend/coverage/coverage.opencover.xml
+
+  # Dependency Updates
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Check for outdated dependencies
+      run: |
+        cd apps/frontend
+        npm outdated || true
+        
+    - name: Check for security vulnerabilities
+      run: |
+        cd apps/frontend
+        npm audit --audit-level moderate || true
+
+  # Documentation Check
+  docs-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check documentation links
+      run: |
+        node tools/check-docs.js
+        
+    - name: Validate README
+      run: |
+        if [ ! -f README.md ]; then
+          echo "❌ README.md is missing"
+          exit 1
+        fi
+        
+    - name: Check for broken links in docs
+      run: |
+        if command -v markdown-link-check &> /dev/null; then
+          find docs -name "*.md" -exec markdown-link-check {} \;
+        fi

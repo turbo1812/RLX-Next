@@ -1,0 +1,224 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+
+jobs:
+  # Development Deployment
+  deploy-development:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Build Frontend
+      run: |
+        cd apps/frontend
+        npm ci
+        npm run build -- --configuration development
+        
+    - name: Build Backend
+      run: |
+        cd apps/backend
+        dotnet restore
+        dotnet build --configuration Development
+        
+    - name: Deploy to Development Environment
+      run: |
+        echo "Deploying to development environment..."
+        # Add your deployment commands here
+        # Example: Azure Functions deployment
+        # az functionapp deployment source config-zip --resource-group rg-rlx-dev --name func-rlx-dev --src apps/backend/bin/Release/net9.0/backend.zip
+        
+    - name: Notify Deployment
+      run: |
+        echo "✅ Development deployment completed successfully"
+        # Add notification logic (Slack, Teams, etc.)
+
+  # Staging Deployment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Build Frontend
+      run: |
+        cd apps/frontend
+        npm ci
+        npm run build -- --configuration staging
+        
+    - name: Build Backend
+      run: |
+        cd apps/backend
+        dotnet restore
+        dotnet build --configuration Staging
+        
+    - name: Run Integration Tests
+      run: |
+        cd apps/backend
+        dotnet test --configuration Staging --filter "Category=Integration"
+        
+    - name: Deploy to Staging Environment
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        
+    - name: Run Smoke Tests
+      run: |
+        echo "Running smoke tests on staging..."
+        # Add smoke test commands
+        
+    - name: Notify Deployment
+      run: |
+        echo "✅ Staging deployment completed successfully"
+
+  # Production Deployment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Build Frontend
+      run: |
+        cd apps/frontend
+        npm ci
+        npm run build -- --configuration production
+        
+    - name: Build Backend
+      run: |
+        cd apps/backend
+        dotnet restore
+        dotnet build --configuration Release
+        
+    - name: Run Full Test Suite
+      run: |
+        cd apps/backend
+        dotnet test --configuration Release
+        
+    - name: Security Scan
+      run: |
+        echo "Running security scans..."
+        # Add security scanning commands
+        
+    - name: Deploy to Production Environment
+      run: |
+        echo "Deploying to production environment..."
+        # Add your deployment commands here
+        
+    - name: Run Production Health Checks
+      run: |
+        echo "Running production health checks..."
+        # Add health check commands
+        
+    - name: Create Release Tag
+      run: |
+        git tag -a "v$(date +%Y.%m.%d)" -m "Production release $(date +%Y-%m-%d)"
+        git push origin --tags
+        
+    - name: Notify Deployment
+      run: |
+        echo "✅ Production deployment completed successfully"
+
+  # Manual Deployment
+  deploy-manual:
+    name: Manual Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: apps/frontend/package-lock.json
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Build Applications
+      run: |
+        cd apps/frontend
+        npm ci
+        npm run build -- --configuration ${{ github.event.inputs.environment }}
+        
+        cd ../backend
+        dotnet restore
+        dotnet build --configuration ${{ github.event.inputs.environment == 'production' && 'Release' || 'Development' }}
+        
+    - name: Deploy to ${{ github.event.inputs.environment }}
+      run: |
+        echo "Deploying to ${{ github.event.inputs.environment }} environment..."
+        # Add deployment commands based on environment
+        
+    - name: Notify Manual Deployment
+      run: |
+        echo "✅ Manual deployment to ${{ github.event.inputs.environment }} completed"
